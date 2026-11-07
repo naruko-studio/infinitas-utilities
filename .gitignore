@@ -1,0 +1,21 @@
+# Rust
+/target/
+
+# Frontend
+node_modules/
+/app/dist/
+
+# Tauri generated files
+/app/src-tauri/gen/
+
+# Game screenshots are copyrighted by Konami and must never be committed.
+# They live in <Pictures>\INFINITAS Screenshots\ (see README).
+/fixtures/
+*.bmp
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+Desktop.ini
