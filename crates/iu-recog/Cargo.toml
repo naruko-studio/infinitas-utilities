@@ -1,0 +1,16 @@
+[package]
+name = "iu-recog"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+iu-core = { path = "../iu-core" }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+iu-fixtures = { path = "../iu-fixtures" }
