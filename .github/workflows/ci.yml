@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [master, development, "feature/**", "release/**", "hotfix/**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # Windows only: the app targets Windows amd64 (Spout2, Win32 APIs).
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: app/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      # The Tauri crate embeds app/dist at compile time, so build it first.
+      - name: Build and check frontend
+        working-directory: app
+        run: |
+          pnpm build
+          pnpm check
+
+      - name: cargo fmt
+        run: cargo fmt --all --check
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      # No screenshots on CI: screenshot regression tests skip themselves.
+      - name: cargo test
+        run: cargo test --workspace --locked
