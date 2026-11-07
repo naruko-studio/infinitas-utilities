@@ -1,0 +1,11 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", "Yu Gothic UI", "Microsoft JhengHei UI", system-ui, sans-serif;
+  font-size: 14px;
+  background: #16181d;
+  color: #e6e8ee;
+}
+
+body {
+  margin: 0;
+}
