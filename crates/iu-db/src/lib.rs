@@ -44,7 +44,7 @@ pub enum StoreError {
     TooNew { found: u32, supported: u32 },
 }
 
-pub use iu_core::play::{DaySummary, PlayRecord};
+pub use iu_core::play::{DaySummary, DayTotal, PlayRecord};
 
 pub struct Store {
     conn: Connection,
@@ -170,6 +170,33 @@ impl Store {
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
+
+    /// Totals of the `limit` most recent game days that have plays, newest
+    /// first. Days without plays are not listed.
+    pub fn recent_days(&self, limit: u32) -> Result<Vec<DayTotal>, StoreError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT game_day, SUM(pg), SUM(gr), SUM(gd), SUM(bd), SUM(pr), SUM(cb),
+                    COUNT(*) FILTER (WHERE pg + gr + gd + bd > 0)
+             FROM plays GROUP BY game_day ORDER BY game_day DESC LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit], |r| {
+            Ok(DayTotal {
+                game_day: r.get(0)?,
+                summary: DaySummary {
+                    judge: Judge {
+                        pg: r.get(1)?,
+                        gr: r.get(2)?,
+                        gd: r.get(3)?,
+                        bd: r.get(4)?,
+                        pr: r.get(5)?,
+                        cb: r.get(6)?,
+                    },
+                    plays: r.get(7)?,
+                },
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
 }
 
 #[cfg(test)]
@@ -198,6 +225,21 @@ mod tests {
                 ..Judge::default()
             },
         }
+    }
+
+    #[test]
+    fn recent_days_are_newest_first_and_limited() {
+        let s = Store::open_in_memory().unwrap();
+        s.insert_play(&record("2026-11-07", 5, 0)).unwrap();
+        s.insert_play(&record("2026-11-09", 10, 0)).unwrap();
+        s.insert_play(&record("2026-11-09", 20, 1)).unwrap();
+        s.insert_play(&record("2026-11-08", 7, 0)).unwrap();
+        let days = s.recent_days(2).unwrap();
+        assert_eq!(days.len(), 2);
+        assert_eq!(days[0].game_day.to_string(), "2026-11-09");
+        assert_eq!(days[0].summary.judge.pg, 30);
+        assert_eq!(days[0].summary.plays, 2);
+        assert_eq!(days[1].game_day.to_string(), "2026-11-08");
     }
 
     #[test]
