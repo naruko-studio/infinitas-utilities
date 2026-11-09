@@ -10,12 +10,14 @@
 //! as in the tests (`IU_FIXTURES_DIR` or Pictures).
 
 mod play;
+mod result;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, bail};
 use iu_core::label::{self, Label, Screen};
+use iu_core::songs::SongList;
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -24,13 +26,15 @@ fn main() -> anyhow::Result<()> {
     let out_dir = repo.join("resources");
     match args.first().map(String::as_str) {
         Some("play") => play::run(&root, &out_dir),
+        Some("result") => result::run(&root, &out_dir),
         Some("labels") => check_labels(&root),
         Some("all") => {
             check_labels(&root)?;
             play::run(&root, &out_dir)?;
+            result::run(&root, &out_dir)?;
             run_tests(&repo)
         }
-        _ => bail!("usage: resgen all | play | labels"),
+        _ => bail!("usage: resgen all | play | result | labels"),
     }
 }
 
@@ -48,7 +52,7 @@ fn check_labels(root: &Path) -> anyhow::Result<()> {
             let name = fixture.path.display();
             match Label::from_file_json(screen, &value.to_string()) {
                 Ok(l) => {
-                    for problem in label::check(&l) {
+                    for problem in label::check(&l).into_iter().chain(against_song_list(&l)) {
                         bad.push(format!("{name}: {problem}"));
                     }
                 }
@@ -65,6 +69,46 @@ fn check_labels(root: &Path) -> anyhow::Result<()> {
     } else {
         bail!("fix the labels above (in the app's annotator) first")
     }
+}
+
+/// A label naming a song must agree with the song list on the chart's level
+/// and note count: catches mislabels and song-list errors alike.
+fn against_song_list(l: &Label) -> Vec<String> {
+    static SONGS: std::sync::OnceLock<SongList> = std::sync::OnceLock::new();
+    let songs = SONGS.get_or_init(|| {
+        SongList::from_json(include_str!("../../../resources/songs.json"))
+            .expect("resources/songs.json is valid")
+    });
+    let (song_id, chart, level, notes) = match l {
+        Label::Result(r) => (&r.song_id, r.chart, r.level, Some(r.notes)),
+        Label::Select(s) => (&s.song_id, s.chart, s.level, None),
+        _ => return Vec::new(),
+    };
+    let Some(id) = song_id else {
+        return Vec::new();
+    };
+    let Some(song) = songs.songs.iter().find(|s| &s.id == id) else {
+        return vec![format!("song id {id} is not in the song list")];
+    };
+    let Some(info) = song.charts.get(&chart) else {
+        return vec![format!("{}: no {chart} chart in the song list", song.title)];
+    };
+    let mut out = Vec::new();
+    if info.level != level {
+        out.push(format!(
+            "{} {chart}: level {level}, song list says {}",
+            song.title, info.level
+        ));
+    }
+    if let (Some(n), Some(listed)) = (notes, info.notes)
+        && n != listed
+    {
+        out.push(format!(
+            "{} {chart}: NOTES {n}, song list says {listed}",
+            song.title
+        ));
+    }
+    out
 }
 
 /// The screenshot regression tests, required to find the fixtures.
