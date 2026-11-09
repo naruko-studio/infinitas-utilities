@@ -23,6 +23,8 @@ tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "chrono"] }
 tokio = { version = "1.54.1", features = ["time"] }
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+serde_json = "1.0.154"
 
 [lints]
 workspace = true

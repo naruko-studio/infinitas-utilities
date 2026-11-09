@@ -13,6 +13,7 @@
     type ServerInfo,
     type Status,
   } from "./lib/api";
+  import Annotator from "./lib/Annotator.svelte";
   import {
     applyLanguage,
     LOCALE_NAMES,
@@ -30,9 +31,14 @@
   let message = $state("");
   let error = $state("");
   let server = $state<ServerInfo | null>(null);
+  let tab = $state<"main" | "annotator">("main");
   let lanBusy = $state(false);
 
-  const OBS_PAGES = ["/obs/counter.html", "/obs/judge.html"] as const;
+  /** OBS pages with the browser-source size that fits them at default styling. */
+  const OBS_PAGES = [
+    { path: "/obs/counter.html", size: "400 × 100" },
+    { path: "/obs/judge.html", size: "300 × 270" },
+  ] as const;
 
   $effect(() => {
     getVersion().then((v) => (version = v));
@@ -112,6 +118,18 @@
     {#if version}<span class="muted">{t("app.version", { version })}</span>{/if}
   </header>
 
+  {#if devCapture}
+    <nav class="tabs">
+      <button class:active={tab === "main"} onclick={() => (tab = "main")}>{t("tab.main")}</button>
+      <button class:active={tab === "annotator"} onclick={() => (tab = "annotator")}>
+        {t("tab.annotator")}
+      </button>
+    </nav>
+  {/if}
+
+  {#if tab === "annotator" && devCapture}
+    <Annotator />
+  {:else}
   {#if status}
     <p class="connection {status.connection}">{connectionText}</p>
 
@@ -151,11 +169,12 @@
       {#if server.running}
         <div class="muted">{t("web.obs")}</div>
         <ul class="urls">
-          {#each OBS_PAGES as page (page)}
-            {@const url = server.localUrl + page}
+          {#each OBS_PAGES as page (page.path)}
+            {@const url = server.localUrl + page.path}
             <li>
               <code>{url}</code>
               <button onclick={() => copy(url)}>{t("web.copy")}</button>
+              <span class="muted small">{t("web.size", { size: page.size })}</span>
             </li>
           {/each}
         </ul>
@@ -209,6 +228,7 @@
 
   {#if message}<p class="muted">{message}</p>{/if}
   {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {/if}
 </main>
 
 {#snippet judgeTable(j: Judge)}
@@ -245,6 +265,9 @@
     margin: 0 0 6px;
     color: #9aa0ad;
     font-weight: 600;
+  }
+  .small {
+    font-size: 0.8rem;
   }
   .muted,
   .hint {
@@ -340,6 +363,14 @@
     padding: 2px 6px;
     border-radius: 4px;
     user-select: all;
+  }
+  .tabs {
+    display: flex;
+    gap: 6px;
+  }
+  .tabs button.active {
+    background: #2f5d8a;
+    color: #fff;
   }
   .settings {
     display: flex;

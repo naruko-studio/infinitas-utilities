@@ -1,3 +1,4 @@
+mod annotator;
 mod commands;
 mod engine;
 mod logging;
@@ -26,6 +27,7 @@ pub struct AppState {
     pub status: SharedStatus,
     pub engine: Mutex<Sender<engine::Command>>,
     pub web: web::Web,
+    pub annotator: Option<annotator::Annotator>,
     /// Keeps the background log writer alive; dropping it flushes the log.
     _log_guard: Option<tracing_appender::non_blocking::WorkerGuard>,
 }
@@ -74,6 +76,7 @@ pub fn run() {
                 status.clone(),
             );
             let server_config = config.server.clone();
+            let config_capture_game_dir = config.capture.game_screenshot_dir.clone();
 
             app.manage(AppState {
                 config: Mutex::new(config),
@@ -81,6 +84,7 @@ pub fn run() {
                 status,
                 engine: Mutex::new(engine),
                 web,
+                annotator: annotator::Annotator::new(config_capture_game_dir),
                 _log_guard: log_guard,
             });
             let handle = app.handle().clone();
@@ -97,6 +101,13 @@ pub fn run() {
             commands::capture_frame,
             commands::get_server_info,
             commands::set_lan_access,
+            commands::annotator_list,
+            commands::annotator_image,
+            commands::annotator_load,
+            commands::annotator_check,
+            commands::annotator_save,
+            commands::annotator_discard,
+            commands::song_list,
         ])
         .run(tauri::generate_context!())
         .expect("error while running infinitas-utilities");

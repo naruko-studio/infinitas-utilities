@@ -2,11 +2,14 @@
 
 use std::time::Duration;
 
+use iu_core::label::Label;
+use iu_core::songs::SongList;
 use iu_core::status::Status;
 use iu_core::{Config, Language};
 use tauri::State;
 
 use crate::AppState;
+use crate::annotator::{Annotator, Loaded, Shot};
 use crate::engine::Command;
 use crate::web::ServerInfo;
 
@@ -83,4 +86,57 @@ pub async fn set_lan_access(
     };
     state.web.apply(server).await;
     Ok(state.web.info().await)
+}
+
+// ---- annotator (developer screen) ------------------------------------------
+
+fn annotator<'a>(state: &'a State<'_, AppState>) -> Result<&'a Annotator, String> {
+    state
+        .annotator
+        .as_ref()
+        .ok_or_else(|| "the Pictures folder was not found".to_owned())
+}
+
+#[tauri::command]
+pub async fn annotator_list(state: State<'_, AppState>) -> Result<Vec<Shot>, String> {
+    Ok(annotator(&state)?.list())
+}
+
+/// PNG bytes, sent as raw binary rather than JSON.
+#[tauri::command]
+pub async fn annotator_image(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<tauri::ipc::Response, String> {
+    Ok(tauri::ipc::Response::new(annotator(&state)?.image(&path)?))
+}
+
+#[tauri::command]
+pub async fn annotator_load(state: State<'_, AppState>, path: String) -> Result<Loaded, String> {
+    annotator(&state)?.load(&path)
+}
+
+#[tauri::command]
+pub fn annotator_check(label: Label) -> Vec<String> {
+    crate::annotator::check(&label)
+}
+
+#[tauri::command]
+pub async fn annotator_save(
+    state: State<'_, AppState>,
+    path: String,
+    label: Label,
+) -> Result<String, String> {
+    annotator(&state)?.save(&path, &label)
+}
+
+#[tauri::command]
+pub async fn annotator_discard(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    annotator(&state)?.discard(&path)
+}
+
+/// The bundled song list, for picking the song of a result/select label.
+#[tauri::command]
+pub fn song_list() -> Result<SongList, String> {
+    SongList::from_json(include_str!("../../../resources/songs.json")).map_err(|e| e.to_string())
 }

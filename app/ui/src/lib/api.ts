@@ -67,5 +67,103 @@ export const getServerInfo = () => invoke<ServerInfo>("get_server_info");
 export const setLanAccess = (enabled: boolean) =>
   invoke<ServerInfo>("set_lan_access", { enabled });
 
-export const onStatus =(handler: (s: Status) => void): Promise<UnlistenFn> =>
+export const onStatus = (handler: (s: Status) => void): Promise<UnlistenFn> =>
   listen<Status>("engine://status", (e) => handler(e.payload));
+
+// ---- annotator (developer screen) ------------------------------------------
+
+export type Screen = "play" | "result" | "select" | "option" | "other";
+export type Chart = "SPB" | "SPN" | "SPH" | "SPA" | "SPL" | "DPN" | "DPH" | "DPA" | "DPL";
+export type Lamp =
+  | "no-play"
+  | "failed"
+  | "assist-clear"
+  | "easy-clear"
+  | "clear"
+  | "hard-clear"
+  | "ex-hard-clear"
+  | "full-combo";
+export type DjLevel = "F" | "E" | "D" | "C" | "B" | "A" | "AA" | "AAA";
+export type Gauge = "off" | "assist-easy" | "easy" | "hard" | "ex-hard";
+
+export interface PlayLabel {
+  screen: "play";
+  layout: string;
+  judge: Judge;
+}
+
+export interface ResultLabel {
+  screen: "result";
+  side: "1p" | "2p";
+  chart: Chart;
+  level: number;
+  songId: string | null;
+  title: string;
+  notes: number;
+  lamp: Lamp;
+  bestLamp: Lamp | null;
+  djLevel: DjLevel;
+  score: number;
+  bestScore: number | null;
+  missCount: number | null;
+  bestMissCount: number | null;
+  judge: { pg: number; gr: number; gd: number; bd: number; pr: number };
+  comboBreak: number;
+  fast: number;
+  slow: number;
+  dead: { note: number; measure: number } | null;
+}
+
+export interface SelectLabel {
+  screen: "select";
+  style: "sp" | "dp";
+  chart: Chart;
+  level: number;
+  songId: string | null;
+  title: string;
+  lamp: Lamp;
+  djLevel: DjLevel | null;
+  score: number;
+  missCount: number | null;
+}
+
+export interface OptionLabel {
+  screen: "option";
+  style: "sp" | "dp";
+  gauge: Gauge;
+}
+
+export type Label = PlayLabel | ResultLabel | SelectLabel | OptionLabel | { screen: "other" };
+
+export interface Shot {
+  path: string;
+  name: string;
+  source: "devCapture" | "game";
+  folder: string | null;
+  width: number;
+  height: number;
+  labeled: boolean;
+  modified: number;
+}
+
+export interface Loaded {
+  label: Label | null;
+  suggestion: Label | null;
+}
+
+export interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  charts: Partial<Record<Chart, { level: number; notes?: number }>>;
+}
+
+export const annotatorList = () => invoke<Shot[]>("annotator_list");
+export const annotatorImage = (path: string) =>
+  invoke<ArrayBuffer>("annotator_image", { path });
+export const annotatorLoad = (path: string) => invoke<Loaded>("annotator_load", { path });
+export const annotatorCheck = (label: Label) => invoke<string[]>("annotator_check", { label });
+export const annotatorSave = (path: string, label: Label) =>
+  invoke<string>("annotator_save", { path, label });
+export const annotatorDiscard = (path: string) => invoke<void>("annotator_discard", { path });
+export const songList = () => invoke<{ songs: Song[] }>("song_list");
