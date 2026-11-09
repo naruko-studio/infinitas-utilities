@@ -1,0 +1,4 @@
+[alias]
+# Check labels, regenerate every recognition resource from the labelled
+# screenshots, then run the screenshot regression tests (see tools/resgen).
+resources = "run --release -p resgen -- all"
