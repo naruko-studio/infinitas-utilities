@@ -8,6 +8,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use chrono::NaiveTime;
 use serde::{Deserialize, Serialize};
 
 pub const CONFIG_FILE_NAME: &str = "config.json";
@@ -32,6 +33,9 @@ pub struct Config {
     pub language: Language,
     pub capture: CaptureConfig,
     pub server: ServerConfig,
+    /// When "today" rolls over, in Japan time (`HH:MM:SS`). Defaults to the
+    /// start of the daily maintenance, 05:00. See [`crate::day`].
+    pub day_start_jst: NaiveTime,
     /// `tracing` filter, e.g. `info` or `iu_recog=debug,info`.
     pub log_level: String,
 }
@@ -42,6 +46,7 @@ impl Default for Config {
             language: Language::default(),
             capture: CaptureConfig::default(),
             server: ServerConfig::default(),
+            day_start_jst: crate::day::default_day_start(),
             log_level: "info".to_owned(),
         }
     }
@@ -53,6 +58,10 @@ pub struct CaptureConfig {
     /// Spout sender name set in the OBS Spout Filter.
     pub spout_sender: String,
     pub fps: u32,
+    /// Developer capture mode: save frames to
+    /// `<Pictures>\INFINITAS Screenshots\dev-capture\<w>x<h>\unsorted\`
+    /// when the judge panel cannot be read, and every few seconds in play.
+    pub dev_capture: bool,
 }
 
 impl Default for CaptureConfig {
@@ -60,6 +69,7 @@ impl Default for CaptureConfig {
         Self {
             spout_sender: "Spout_OBS_Filter".to_owned(),
             fps: 30,
+            dev_capture: false,
         }
     }
 }
