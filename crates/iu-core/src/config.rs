@@ -77,17 +77,20 @@ impl Default for CaptureConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ServerConfig {
-    /// WebSocket for OBS browser sources.
-    pub ws_port: u16,
-    /// HTTP server for phones on the LAN.
-    pub mobile_port: u16,
+    /// One port for everything web: the OBS pages, the phone page, the
+    /// WebSocket feed and the read-only API.
+    #[serde(alias = "ws_port")]
+    pub port: u16,
+    /// Listen on all interfaces so phones on the LAN can connect. Off by
+    /// default: then only this PC (OBS) can.
+    pub lan_access: bool,
 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            ws_port: 8767,
-            mobile_port: 8787,
+            port: 8767,
+            lan_access: false,
         }
     }
 }

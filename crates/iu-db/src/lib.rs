@@ -9,7 +9,7 @@
 
 use std::path::Path;
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 use iu_core::{Judge, PlayLayout};
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -44,23 +44,7 @@ pub enum StoreError {
     TooNew { found: u32, supported: u32 },
 }
 
-/// A finished play.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PlayRecord {
-    pub game_day: NaiveDate,
-    pub started_at: DateTime<Utc>,
-    pub finished_at: DateTime<Utc>,
-    pub layout: PlayLayout,
-    pub judge: Judge,
-}
-
-/// Totals for one game day.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct DaySummary {
-    pub judge: Judge,
-    /// Plays with at least one note hit (same rule as the counter).
-    pub plays: u32,
-}
+pub use iu_core::play::{DaySummary, PlayRecord};
 
 pub struct Store {
     conn: Connection,
@@ -191,6 +175,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{DateTime, Utc};
     use iu_core::Side;
 
     const SP: PlayLayout = PlayLayout::Sp {

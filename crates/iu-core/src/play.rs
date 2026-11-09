@@ -3,6 +3,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 /// The six judge counts shown on the play screen's judge panel.
@@ -163,6 +164,36 @@ impl<'de> Deserialize<'de> for PlayLayout {
         let s = String::deserialize(d)?;
         s.parse().map_err(serde::de::Error::custom)
     }
+}
+
+/// A finished play, as stored in `data.db` and sent to the web pages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayRecord {
+    /// Game day (see [`crate::day`]).
+    pub game_day: NaiveDate,
+    pub started_at: DateTime<Utc>,
+    pub finished_at: DateTime<Utc>,
+    pub layout: PlayLayout,
+    pub judge: Judge,
+}
+
+/// Totals for one game day.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DaySummary {
+    pub judge: Judge,
+    /// Plays with at least one note hit (same rule as the counter).
+    pub plays: u32,
+}
+
+/// One game day's totals, for history lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DayTotal {
+    pub game_day: NaiveDate,
+    #[serde(flatten)]
+    pub summary: DaySummary,
 }
 
 #[cfg(test)]
