@@ -26,7 +26,7 @@ beatmania IIDX INFINITAS 的直播／遊玩輔助工具（Windows x64）。
 </div>
 
 > [!NOTE]
-> 開發中（P1 打鍵計數），目前還不能實際使用。功能範圍和進度見 [docs/PLAN.md](docs/PLAN.md)。
+> 開發中（P2 OBS 和手機頁面），目前還不能實際使用。功能範圍和進度見 [docs/PLAN.md](docs/PLAN.md)。
 
 ## 預計功能
 
@@ -49,6 +49,18 @@ beatmania IIDX INFINITAS 的直播／遊玩輔助工具（Windows x64）。
 3. 在遊戲的 ADVANCED GAME OPTION SETTING 把「判定の数リアルタイム表示」設為 ON。
 
 目前只支援 1920×1080。其他解析度歡迎協作者發 PR（見 PLAN 4.1.1）。
+
+### OBS 和手機
+
+App 會在 `http://localhost:8767` 提供網頁（主畫面會列出網址，並附複製按鈕）：
+
+| 頁面 | 內容 |
+| --- | --- |
+| `/obs/counter.html` | 今日打鍵數和遊玩次數（OBS 瀏覽器來源） |
+| `/obs/judge.html` | 這首歌的判定數和比例條；加 `?scope=today` 改顯示今日合計 |
+| `/` | 手機頁：今日合計、這首歌、今天每首的紀錄、最近幾天 |
+
+OBS 頁背景透明，字型、顏色、大小可以在瀏覽器來源的「自訂 CSS」用 CSS 變數（`--iu-size`、`--iu-color`…）調整。要用手機看，請在主畫面勾選「允許區網內的手機連線」，再用手機打開畫面上顯示的網址。頁面只能查看、沒有密碼，請只在家裡的網路使用。
 
 ## 開發
 

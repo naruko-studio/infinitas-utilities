@@ -26,7 +26,7 @@ A streaming and play companion for beatmania IIDX INFINITAS (Windows x64).
 </div>
 
 > [!NOTE]
-> Work in progress (P1: keystroke counter). Not usable yet. See [docs/PLAN.md](docs/PLAN.md) (Traditional Chinese) for scope and progress.
+> Work in progress (P2: OBS and phone pages). Not usable yet. See [docs/PLAN.md](docs/PLAN.md) (Traditional Chinese) for scope and progress.
 
 ## Features (planned)
 
@@ -49,6 +49,18 @@ Frames come from OBS through Spout2:
 3. In the game's ADVANCED GAME OPTION SETTING, set 「判定の数リアルタイム表示」 (live judge count) to ON.
 
 Only 1920×1080 is supported for now. Other resolutions are open for contributions (see PLAN 4.1.1).
+
+### OBS and phone
+
+The app serves pages on `http://localhost:8767` (the main screen lists the URLs with copy buttons):
+
+| Page | Shows |
+| --- | --- |
+| `/obs/counter.html` | Today's keystrokes and plays (OBS browser source) |
+| `/obs/judge.html` | The current song's judge counts and ratio bar; `?scope=today` for today's totals |
+| `/` | Phone page: today, the current song, today's plays, recent days |
+
+OBS pages have a transparent background; fonts, colors and size can be changed with CSS variables (`--iu-size`, `--iu-color`…) in the browser source's Custom CSS. To use the phone page, turn on "Allow phones on the LAN to connect" on the main screen and open the address it shows. The pages are read-only and have no password, so only do this on a home network.
 
 ## Development
 
