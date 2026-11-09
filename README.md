@@ -1,69 +1,108 @@
+<div align="center">
+
 # infinitas-utilities
 
-beatmania IIDX INFINITAS 的直播／遊玩輔助工具（Windows amd64）。
+**English** | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md)
 
-> 開發中（P0 初始化）。目前還不能實際使用，功能和進度見 [docs/PLAN.md](docs/PLAN.md)。
+A streaming and play companion for beatmania IIDX INFINITAS (Windows x64).
 
-## 預計功能
+[![CI](https://github.com/naruko-studio/infinitas-utilities/actions/workflows/ci.yml/badge.svg?branch=development)](https://github.com/naruko-studio/infinitas-utilities/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/naruko-studio/infinitas-utilities?include_prereleases&sort=semver)](https://github.com/naruko-studio/infinitas-utilities/releases)
+[![Downloads](https://img.shields.io/github/downloads/naruko-studio/infinitas-utilities/total)](https://github.com/naruko-studio/infinitas-utilities/releases)
+[![License: MIT](https://img.shields.io/github/license/naruko-studio/infinitas-utilities)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D6?logo=windows)](#)
 
-- 打鍵計數（當日累計、1P／2P／DP）
-- 結算和選曲畫面辨識、成績資料庫、成績檢視器
-- 結算圖片自動儲存（預設只在刷新紀錄時存）
-- 給 OBS 瀏覽器來源用的 HTML 畫面（今日紀錄、統計、收據…）
-- OBS 錄影控制：每首歌一個檔，結束後依曲名、難度、燈號自動改名
-- 遊戲畫面疊加、手機 HTTP 伺服器、RANDOM 配置辨識
-- 介面語言：繁體中文、日本語、English
+[![Rust](https://img.shields.io/badge/Rust-2024-000000?logo=rust)](https://www.rust-lang.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-v2-24C8DB?logo=tauri)](https://tauri.app/)
+[![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte)](https://svelte.dev/)
+[![AI-assisted](https://img.shields.io/badge/AI--assisted-Claude%20Code-D97757?logo=claude)](#ai-assistance)
 
-## 運作方式
+[![Stars](https://img.shields.io/github/stars/naruko-studio/infinitas-utilities?style=flat)](https://github.com/naruko-studio/infinitas-utilities/stargazers)
+[![Issues](https://img.shields.io/github/issues/naruko-studio/infinitas-utilities)](https://github.com/naruko-studio/infinitas-utilities/issues)
+[![Contributors](https://img.shields.io/github/contributors/naruko-studio/infinitas-utilities)](https://github.com/naruko-studio/infinitas-utilities/graphs/contributors)
+[![Last commit](https://img.shields.io/github/last-commit/naruko-studio/infinitas-utilities/development)](https://github.com/naruko-studio/infinitas-utilities/commits/development)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/naruko-studio/infinitas-utilities/pulls)
 
-只透過**擷取畫面加上影像處理**取得資訊，不讀取或修改遊戲的記憶體和檔案，也不做逆向工程。
+</div>
 
-畫面來源是 OBS 的 Spout2 濾鏡，需要：
+> [!NOTE]
+> Work in progress (P1: keystroke counter). Not usable yet. See [docs/PLAN.md](docs/PLAN.md) (Traditional Chinese) for scope and progress.
 
-1. OBS 安裝 Spout2 外掛。
-2. 在擷取 `bm2dx.exe` 的遊戲擷取來源加上 **Spout Filter**，放在濾鏡的最上面（或只放這一個濾鏡）。預設送出名稱是 `Spout_OBS_Filter`。
-3. 遊戲內打開「判定數即時顯示」（Start → E2）。
+## Features (planned)
 
-## 開發
+- Keystroke counter: today's totals across 1P / 2P / DP; the day rolls over at 05:00 JST, when daily maintenance starts
+- Result and music-select screen recognition, score database and score viewer
+- Automatic result screenshots (by default only when a record is broken)
+- HTML pages for OBS browser sources (today's plays, stats, receipt…), also viewable from a phone on the LAN
+- OBS recording control: one file per song, renamed by title, difficulty and clear lamp
+- In-game overlay, RANDOM lane recognition
+- UI languages: English, 繁體中文, 日本語
 
-需要 Rust（stable，MSVC）、Node.js LTS、pnpm。
+## How it works
+
+Everything comes from **screen capture and image processing**. The game's memory and files are never read or modified, and nothing is reverse engineered.
+
+Frames come from OBS through Spout2:
+
+1. Install the Spout2 plugin for OBS.
+2. Add a **Spout Filter** to the Game Capture source of `bm2dx.exe`, at the top of its filter list (or as its only filter). The default sender name is `Spout_OBS_Filter`.
+3. In the game's ADVANCED GAME OPTION SETTING, set 「判定の数リアルタイム表示」 (live judge count) to ON.
+
+Only 1920×1080 is supported for now. Other resolutions are open for contributions (see PLAN 4.1.1).
+
+## Development
+
+Requires Rust (stable, MSVC), Node.js LTS and pnpm.
 
 ```powershell
 cd app
 pnpm install
-pnpm tauri dev                 # 啟動 App
+pnpm tauri dev                 # run the app
 
-# 在 repo 根目錄
+# from the repository root
 cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-### 截圖回歸測試
+### Where data is stored
 
-遊戲截圖的著作權屬於 Konami，**不放進 repo**。測試會從
-`<圖片資料夾>\INFINITAS Screenshots\dev-capture\<寬>x<高>\<畫面>\` 讀取截圖；
-找不到資料夾時會略過（CI 就是這種情況）。
+| File | Location |
+| --- | --- |
+| Settings `config.json`, database `data.db` | `%APPDATA%\studio.naruko.infinitas-utilities\` |
+| Logs | `%LOCALAPPDATA%\studio.naruko.infinitas-utilities\logs\` |
 
-- `IU_FIXTURES_DIR`：改用其他資料夾。
-- `IU_REQUIRE_FIXTURES=1`：找不到截圖時視為失敗，避免在本機不小心略過。
+`data.db` is SQLite (WAL mode). To browse it, use [HeidiSQL](https://www.heidisql.com/), [DataGrip](https://www.jetbrains.com/datagrip/) (free for non-commercial use), [Beekeeper Studio Community Edition](https://www.beekeeperstudio.io/) or [DbGate](https://dbgate.org/). It can be opened while the app runs, but please don't modify it.
 
-## 銘謝
+### Screenshot regression tests
 
-本專案參考了以下專案，在此致謝：
+Game screenshots are © Konami and are **not in this repository**. Tests read them from
+`<Pictures>\INFINITAS Screenshots\dev-capture\<width>x<height>\<screen>\`
+and are skipped when that folder is missing (as on CI).
 
-- [dj-kata/inf_daken_counter_obsw](https://github.com/dj-kata/inf_daken_counter_obsw)（Apache-2.0）：功能範圍和整體設計的主要參考。
-- [kaktuswald/inf-notebook](https://github.com/kaktuswald/inf-notebook)：參考結算、選曲畫面辨識的做法。**只參考演算法**，沒有使用、轉檔或複製它的程式碼和辨識資源。
-- [yuki-RAI01/RandomLaneAnalysis_OCR](https://github.com/yuki-RAI01/RandomLaneAnalysis_OCR)：參考 RANDOM 配置辨識的做法。**只參考演算法**，沒有使用它的程式碼和資源。
-- [Spout2](https://github.com/leadedge/Spout2)（BSD-2-Clause）：擷取畫面。
-- [Tauri](https://tauri.app/)、[Svelte](https://svelte.dev/)。
+- `IU_FIXTURES_DIR`: use another folder.
+- `IU_REQUIRE_FIXTURES=1`: fail instead of skipping, so they are not skipped by accident locally.
 
-辨識用的遮罩和查找表，都是用本專案的 `tools/resgen` 從自己標註的截圖產生。
+## Acknowledgements
 
-## 聲明
+This project builds on ideas from:
 
-本專案與 KONAMI 無關，也未受其認可。beatmania IIDX 和 INFINITAS 是 KONAMI 的商標。
+- [dj-kata/inf_daken_counter_obsw](https://github.com/dj-kata/inf_daken_counter_obsw) (Apache-2.0): the main reference for features and overall design.
+- [kaktuswald/inf-notebook](https://github.com/kaktuswald/inf-notebook): approach to result and music-select recognition. **Algorithms only**; none of its code or recognition resources are used, converted or copied.
+- [yuki-RAI01/RandomLaneAnalysis_OCR](https://github.com/yuki-RAI01/RandomLaneAnalysis_OCR): approach to RANDOM lane recognition. **Algorithms only**; none of its code or resources are used.
+- [Spout2](https://github.com/leadedge/Spout2) (BSD-2-Clause): frame capture.
+- [Tauri](https://tauri.app/), [Svelte](https://svelte.dev/).
 
-## 授權
+All recognition masks and lookup tables are generated by this project's `tools/resgen` from our own labelled screenshots.
 
-[MIT](LICENSE)。第三方的授權和出處見 [NOTICE](NOTICE)。
+## AI assistance
+
+This project is developed with the help of AI: [Claude Code](https://claude.com/claude-code) (Anthropic) writes much of the code and documentation. The maintainer sets the direction, reviews the changes and verifies them on real hardware. Commits written with AI help carry a `Co-Authored-By: Claude` trailer.
+
+## Disclaimer
+
+This project is not affiliated with or endorsed by KONAMI. beatmania IIDX and INFINITAS are trademarks of KONAMI.
+
+## License
+
+[MIT](LICENSE). Third-party licenses and attributions are in [NOTICE](NOTICE).
