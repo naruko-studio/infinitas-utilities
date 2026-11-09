@@ -1,5 +1,6 @@
 //! Prints which rows/columns of a rectangle contain "white" pixels
-//! (min channel > threshold), as runs, to find glyph cells.
+//! (min channel > threshold; with `CH=gb` only green and blue count, for
+//! cyan text), as runs, to find glyph cells.
 //!
 //! cargo run --release -p iu-capture --example projection -- file.png x y w h [threshold]
 
@@ -27,7 +28,12 @@ fn main() {
     let t: u8 = a.get(5).map_or(150, |s| s.parse().unwrap());
     let white = |x, y| {
         let p: &image::Rgb<u8> = img.get_pixel(x, y);
-        p.0.iter().all(|&c| c > t)
+        let channels = if std::env::var("CH").as_deref() == Ok("gb") {
+            &p.0[1..]
+        } else {
+            &p.0[..]
+        };
+        channels.iter().all(|&c| c > t)
     };
     let rows: Vec<u32> = (y0..y0 + h)
         .map(|y| (x0..x0 + w).filter(|&x| white(x, y)).count() as u32)
