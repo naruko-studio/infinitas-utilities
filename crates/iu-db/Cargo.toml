@@ -1,0 +1,20 @@
+[package]
+name = "iu-db"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+iu-core = { path = "../iu-core" }
+rusqlite = { version = "0.41.1", features = ["bundled", "chrono"] }
+thiserror = "2.0.21"
+tracing = "0.1.44"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile = "3.27.0"
