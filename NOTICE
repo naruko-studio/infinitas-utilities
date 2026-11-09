@@ -34,5 +34,13 @@ mutex and frame-count semaphore names). It is our own implementation on
 Win32 and Direct3D 11; no Spout2 code or binaries are included.
 
 --------------------------------------------------------------------------
+BEMANIWiki: beatmania IIDX INFINITAS 全曲リスト / 総ノーツ数リスト
+https://bemaniwiki.com/
+
+resources/songs.json is generated from these pages with a local tool.
+Only factual data is taken: song titles, artists, and each chart's level
+and note count.
+
+--------------------------------------------------------------------------
 beatmania IIDX and INFINITAS are trademarks of KONAMI. This project is not
 affiliated with or endorsed by KONAMI.

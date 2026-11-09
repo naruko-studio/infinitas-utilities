@@ -54,13 +54,13 @@ beatmania IIDX INFINITAS 的直播／遊玩輔助工具（Windows x64）。
 
 App 會在 `http://localhost:8767` 提供網頁（主畫面會列出網址，並附複製按鈕）：
 
-| 頁面 | 內容 |
-| --- | --- |
-| `/obs/counter.html` | 今日打鍵數和遊玩次數（OBS 瀏覽器來源） |
-| `/obs/judge.html` | 這首歌的判定數和比例條；加 `?scope=today` 改顯示今日合計 |
-| `/` | 手機頁：今日合計、這首歌、今天每首的紀錄、最近幾天 |
+| 頁面 | 內容 | OBS 來源建議大小 |
+| --- | --- | --- |
+| `/obs/counter.html` | 今日打鍵數和遊玩次數（OBS 瀏覽器來源） | 400 × 100 |
+| `/obs/judge.html` | 這首歌的判定數和比例條；加 `?scope=today` 改顯示今日合計 | 300 × 270 |
+| `/` | 手機頁：今日合計、這首歌、今天每首的紀錄、最近幾天 | — |
 
-OBS 頁背景透明，字型、顏色、大小可以在瀏覽器來源的「自訂 CSS」用 CSS 變數（`--iu-size`、`--iu-color`…）調整。要用手機看，請在主畫面勾選「允許區網內的手機連線」，再用手機打開畫面上顯示的網址。頁面只能查看、沒有密碼，請只在家裡的網路使用。
+OBS 頁背景透明，字型、顏色、大小可以在瀏覽器來源的「自訂 CSS」用 CSS 變數（`--iu-size`、`--iu-color`…）調整。要用手機看，請在主畫面勾選「允許區網內的手機連線」，再用手機打開畫面上顯示的網址。頁面只能查看、沒有密碼，請只在家裡的網路使用。上表的大小是預設樣式下的建議值，改了 `--iu-size` 就等比例調整。OBS 頁的文字跟著電腦的語言，也可以在網址加 `?lang=en`、`zh-TW` 或 `ja` 指定；手機頁右上角可以選語言。
 
 ## 開發
 
@@ -75,6 +75,7 @@ pnpm tauri dev                 # 啟動 App
 cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+cargo resources               # 檢查標註 → 產生辨識資源 → 截圖回歸測試
 ```
 
 ### 資料存放位置
@@ -103,6 +104,7 @@ cargo test --workspace
 - [kaktuswald/inf-notebook](https://github.com/kaktuswald/inf-notebook)：參考結算、選曲畫面辨識的做法。**只參考演算法**，沒有使用、轉檔或複製它的程式碼和辨識資源。
 - [yuki-RAI01/RandomLaneAnalysis_OCR](https://github.com/yuki-RAI01/RandomLaneAnalysis_OCR)：參考 RANDOM 配置辨識的做法。**只參考演算法**，沒有使用它的程式碼和資源。
 - [Spout2](https://github.com/leadedge/Spout2)（BSD-2-Clause）：擷取畫面。
+- [BEMANIWiki](https://bemaniwiki.com/?beatmania+IIDX+INFINITAS/%E5%85%A8%E6%9B%B2%E3%83%AA%E3%82%B9%E3%83%88)：曲目主表（`resources/songs.json`：曲名、演出者、各譜面的等級和 NOTES 數）的資料來源。
 - [Tauri](https://tauri.app/)、[Svelte](https://svelte.dev/)。
 
 辨識用的遮罩和查找表，都是用本專案的 `tools/resgen` 從自己標註的截圖產生。

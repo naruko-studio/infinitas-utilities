@@ -54,13 +54,13 @@ beatmania IIDX INFINITAS の配信・プレー補助ツール（Windows x64）�
 
 アプリは `http://localhost:8767` でページを提供します（メイン画面に URL とコピーボタンがあります）：
 
-| ページ | 内容 |
-| --- | --- |
-| `/obs/counter.html` | 今日の打鍵数とプレー回数（OBS ブラウザソース） |
-| `/obs/judge.html` | この曲の判定数と割合バー。`?scope=today` で今日の合計 |
-| `/` | スマートフォン用ページ：今日の合計、この曲、今日の記録、最近の記録 |
+| ページ | 内容 | OBS ソース推奨サイズ |
+| --- | --- | --- |
+| `/obs/counter.html` | 今日の打鍵数とプレー回数（OBS ブラウザソース） | 400 × 100 |
+| `/obs/judge.html` | この曲の判定数と割合バー。`?scope=today` で今日の合計 | 300 × 270 |
+| `/` | スマートフォン用ページ：今日の合計、この曲、今日の記録、最近の記録 | — |
 
-OBS 用ページは背景が透明で、フォント・色・サイズはブラウザソースの「カスタム CSS」で CSS 変数（`--iu-size`、`--iu-color`…）を使って変更できます。スマートフォンで見るには、メイン画面で「LAN 内のスマートフォンからの接続を許可」をオンにし、表示されたアドレスを開いてください。ページは閲覧のみでパスワードはないため、自宅のネットワークでのみ使用してください。
+OBS 用ページは背景が透明で、フォント・色・サイズはブラウザソースの「カスタム CSS」で CSS 変数（`--iu-size`、`--iu-color`…）を使って変更できます。スマートフォンで見るには、メイン画面で「LAN 内のスマートフォンからの接続を許可」をオンにし、表示されたアドレスを開いてください。ページは閲覧のみでパスワードはないため、自宅のネットワークでのみ使用してください。上の表のサイズは初期スタイルでの推奨値で、`--iu-size` を変えた場合は同じ比率で調整してください。OBS 用ページの文字は PC の言語に合わせます。URL に `?lang=en`、`zh-TW`、`ja` を付けて指定することもできます。スマートフォン用ページは右上で言語を選べます。
 
 ## 開発
 
@@ -75,6 +75,7 @@ pnpm tauri dev                 # アプリを起動
 cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+cargo resources               # ラベル検査 → 認識リソース生成 → スクリーンショットテスト
 ```
 
 ### データの保存場所
@@ -103,6 +104,7 @@ cargo test --workspace
 - [kaktuswald/inf-notebook](https://github.com/kaktuswald/inf-notebook)：リザルト・選曲画面の認識手法を参考。**アルゴリズムのみ**を参考にしており、コードや認識用リソースの使用・変換・複製はしていません。
 - [yuki-RAI01/RandomLaneAnalysis_OCR](https://github.com/yuki-RAI01/RandomLaneAnalysis_OCR)：RANDOM 配置の認識手法を参考。**アルゴリズムのみ**を参考にしており、コードやリソースは使用していません。
 - [Spout2](https://github.com/leadedge/Spout2)（BSD-2-Clause）：画面キャプチャ。
+- [BEMANIWiki](https://bemaniwiki.com/?beatmania+IIDX+INFINITAS/%E5%85%A8%E6%9B%B2%E3%83%AA%E3%82%B9%E3%83%88)：曲目リスト（`resources/songs.json`：曲名、アーティスト、各譜面のレベルとノーツ数）のデータ元。
 - [Tauri](https://tauri.app/)、[Svelte](https://svelte.dev/)。
 
 認識用のマスクと参照テーブルは、すべて本プロジェクトの `tools/resgen` で自前のラベル付きスクリーンショットから生成しています。

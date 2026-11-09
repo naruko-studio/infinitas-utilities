@@ -57,10 +57,9 @@ infinitas-utilities/
 │  ├─ src-tauri/              # 主迴圈、狀態機、command、托盤、熱鍵、疊加視窗
 │  └─ ui/                     # Svelte 5 + TS（設定畫面、主畫面、成績檢視器）
 ├─ views/                     # 給 OBS 用的 HTML/CSS/純 JS（透過 WS 收資料）
-├─ resources/                 # 自己產生的辨識資源（msgpack，有版本號）
+├─ resources/                 # 自己產生的辨識資源（JSON，有版本號）和曲目主表 songs.json
 ├─ .github/workflows/         # CI、發佈
 └─ tools/
-   ├─ annotator/              # 截圖標註工具
    └─ resgen/                 # 從標註資料產生資源的 CLI
 ```
 
@@ -108,7 +107,7 @@ infinitas-utilities/
 | **P0 初始化** | workspace、Tauri 骨架、設定檔（`config.json` + serde，有預設值）、tracing log、i18n 架構、CI（`cargo fmt/clippy/test`）、樣本截圖回歸測試框架 | 空白視窗能啟動；`cargo test` 通過 |
 | **P1 打鍵計數 MVP**（F1、F2、F3） | Spout2 接收、解析度偵測、開發者擷取模式、Spout 和 F12 截圖的像素比對（見 4.2）、畫面狀態錨點、判定數字表（自己建）、1P/2P/DP 判斷、當日累計、主畫面顯示 | 標註截圖的判定值 100% 正確；實機遊玩時能正確累計 |
 | **P2 HTML 畫面基礎**（F7，含 P4／P8 的共用部分） | 事件匯流排（引擎 → UI／伺服器，補上 P1 欠的架構）；`iu-server`（axum）：WS 推送格式、靜態 HTML、唯讀查詢 API；打鍵數和圖表畫面；`iu-db` 歷史查詢（每日合計、當天每首紀錄）；**手機頁**（今日合計、這首歌、今天每首紀錄、最近幾天的打鍵數）；**區網存取**：預設只聽 localhost，設定打開後才對區網開放，主畫面顯示手機要連的網址（2026-11-09 使用者要求提前） | OBS 瀏覽器來源能即時更新；手機在區網內能即時看到計數和今天的紀錄 |
-| **P3a 資源工具鏈** | `annotator`、`resgen`、msgpack 資源格式、fixtures 回歸測試、讀取曲目主表 | 一個指令就能從標註資料產生資源並跑完測試 |
+| **P3a 資源工具鏈** | 標註畫面（App 內的開發者畫面）、`resgen all`（`cargo resources`）、標註格式和一致性檢查、fixtures 回歸測試、曲目主表（本機工具產生） | 一個指令就能從標註資料產生資源並跑完測試 |
 | **P3b 結算／選曲辨識**（F4、F5） | 數字、燈號、DJ LEVEL、難度、曲名 trie、選曲畫面；邊玩邊學的未知佇列；擴充 SQLite schema（`plays` 表已在 P1 建立）；F6/F7 熱鍵；圖片儲存和加工 | 已標註曲目的辨識正確率 100%；未知曲目能進佇列並學起來 |
 | **P4 檢視與紀錄畫面**（F6、F7） | （伺服器、查詢 API、打鍵數的歷史已在 P2 完成）成績檢視器、`today_result` / `history_cursong` / `today_stats` / `today_receipt`（拿掉 BPI 區塊）/ `whole_layout` 畫面 | |
 | **P5 其他解析度**（F3） | 為 1080p 以外的解析度收集截圖、產生資源組；偵測到不支援的解析度時提示使用者（已在 P1 完成）。**開放協作者 PR**（含自動縮放的提案，見 4.1.1） | 各支援解析度都通過回歸測試 |
@@ -154,7 +153,7 @@ infinitas-utilities/
      - 不一致：答案表只用 Spout 影格做（或在比對前先做轉換），F12 截圖只拿來找版面；README 也要寫出 OBS 這邊需要的設定。
      - **結果（2026-11-07，已驗證）：一致。** 選曲畫面：連續 2 秒的 Spout 影格裡始終不變的像素（約 61 萬個，排除動態背景和半透明面板）和同一畫面的 F12 截圖比對，**99.973% 完全相同**，145 個差 1，19 個差更多（應是當下畫面的小變化），平均色差約 0（R +0.0007、G 0、B −0.0002），沒有系統性色偏。F12 截圖可以直接當資料用。辨識仍然用門檻判斷，不做「完全相等」比對，以容忍 ±1 的誤差。
      - 工具：`iu-capture` 的範例 `static_diff`（只比靜態像素）、`spout_vs_f12`（等新的 F12 截圖再比）。程式送出的 F12 遊戲不接受，要使用者實際按。
-2. **標註工具** `tools/annotator`：對截圖標上正確答案（曲名、難度、分數…）。
+2. **標註工具**（App 內的開發者畫面，打開開發者擷取模式後出現「標註」分頁；原本規劃的 `tools/annotator` 改成這樣，2026-11-09 使用者決定）：對截圖標上正確答案（曲名、難度、分數…）。
    - **半自動標註**：結算畫面的數字之間有固定關係，可以用來自動檢查。字型表建好之後，數字類的欄位由工具先填，人只要確認曲名就好。
      - `EX SCORE = PGREAT×2 + GREAT`（4 個樣本全部成立）
      - `MISS COUNT = BAD + POOR`（例：14+84 = 98）
@@ -172,7 +171,7 @@ infinitas-utilities/
        - DEAD POINT 欄的位置：1P 在圖表欄的右邊（約 x 565–775、y 280–355）。
      - 用途：結算時用來交叉檢查辨識結果；曲目主表沒有這首歌的 NOTES 時，也可以從結算畫面反推，自動補進去。遊玩中的判定面板也有 CB，所以打鍵計數也能用同一條規則檢查。
    - 結算畫面的版型目錄見 4.5。
-3. **產生資源** `tools/resgen`（Rust CLI）：從標註資料產生遮罩、查找表、曲名 trie，輸出 `resources/*.msgpack`，附上版本號。
+3. **產生資源** `tools/resgen`（Rust CLI）：從標註資料產生遮罩、查找表、曲名 trie，輸出 `resources/<寬>x<高>/*.json`，附上版本號。**格式用 JSON 而不是原本規劃的 msgpack**：目前的資源很小（play.json 約 5 KB），JSON 在 git diff 裡看得出改了什麼，出問題也容易查；之後曲名 trie 等資源太大時，再個別改成 msgpack。
 4. **回歸測試**：同一批標註資料（`dev-capture\`，見 6.2）也是回歸測試的資料。產生資源後馬上全部重新辨識一次，確認結果正確。
 
 ### 4.3 曲名的難題和對策
@@ -186,7 +185,7 @@ infinitas-utilities/
 
 ### 4.4 曲目主表
 
-**資料來源由使用者負責準備。** App 這邊只定義匯入格式（見 5.1），啟動時讀取並驗證。
+**資料來源：BEMANIWiki 的全曲リスト和総ノーツ数リスト**，用本機工具 `tools/songlist` 轉成 `resources/songs.json`（格式見 5.1）。**這個工具只放在使用者的電腦上，不進 repo**（2026-11-09 使用者決定）：它是獨立的 Cargo workspace，repo 的 `Cargo.lock` 不含它的依賴。只取事實資料，NOTICE 和 README 註明出處。曲單更新時在 `tools/songlist` 裡跑 `cargo run --release -- fetch`。
 
 ### 4.5 版型目錄（從實際截圖整理，2026-11-07）
 
@@ -241,6 +240,12 @@ infinitas-utilities/
   - 事件匯流排：`iu-core::event`（`tokio::sync::broadcast`），事件是 `Status`（快照，最多 10 Hz）和 `PlayFinished`。引擎發布，App 主畫面（`engine://status`、`engine://play`）和網頁伺服器都只聽事件。`data.db` 由引擎在發布 `PlayFinished` 前寫入，這樣聽到事件的一方去查 API 時，這一首一定已經在資料庫裡。
   - `iu-server`（axum）：一個 port（預設 8767）提供全部功能。`/` 是手機頁，`/obs/counter.html` 是今日打鍵數，`/obs/judge.html` 是這首歌的判定和比例條（`?scope=today` 改顯示今日合計）。另有 `/ws`（連上時先送一次快照，之後轉送事件）和唯讀 API `/api/status`、`/api/today`、`/api/days`。網頁用純 JS，嵌在執行檔裡；OBS 頁背景透明，可以用 CSS 變數自訂。設定檔 `server.port` 可改 port（舊的 `ws_port` 仍可讀），`server.lan_access` 控制區網存取，預設只聽 127.0.0.1。
   - 實機驗證（2026-11-09）：OBS 瀏覽器來源會即時更新，手機在區網內能即時看到資料。UI/UX 留到 Release 前調整（P10）。
+- **P3a 實作結果（2026-11-09，尚未 commit）**：
+  - 標註格式：`iu-core::label`。畫面種類就是資料夾名稱（`play`／`result`／`select`／`option`／`other`），JSON 裡只放那種畫面的欄位，所以 P1 的 play 標註照樣能讀。結算畫面的欄位：side、chart、level、songId（對應曲目主表）、title、notes、lamp（和最佳 lamp）、DJ LEVEL、SCORE（和最佳）、MISS COUNT（和最佳；「—」記為 null）、PG–PR、COMBO BREAK、FAST／SLOW、DEAD POINT（NOTE、MEASURE）。
+  - 一致性檢查（`label::check`，照 4.2）：SCORE = PG×2+GR、MISS COUNT = BD+PR、PG+GR+GD+CB = NOTES（關門時改為等於 DEAD POINT 的 NOTE）、CB ≥ BD、FULL COMBO 時 CB = 0、選曲畫面 NO PLAY 時沒有 DJ LEVEL。
+  - 標註畫面：左邊是截圖清單，來源有 dev-capture 的各資料夾和遊戲的 F12 資料夾（設定檔 `capture.game_screenshot_dir`），可以篩選待標註、全部、各分類。中間顯示截圖，右邊是表單：遊玩畫面用辨識結果預填；曲名從曲目主表選，選了就自動帶入等級和 NOTES；數字不一致時即時列出問題。儲存時會把截圖歸檔到 `dev-capture\<寬>x<高>\<畫面種類>\`：F12 截圖用複製的，遊戲資料夾不會被改；dev-capture 裡的截圖用移動的。「丟棄」會把截圖移到 `discarded\`，不會刪除。只能讀寫這兩個根目錄底下的 PNG。
+  - `cargo resources`（= `resgen all`）：先檢查所有標註（解析和一致性），再產生全部資源，最後用 `IU_REQUIRE_FIXTURES=1` 跑截圖回歸測試。
+  - 曲目主表：見 4.4、5.1。
 - 每種組合（SP 1P／2P × 圖表在中間／在外側、DP 資訊欄左／右）都要各收一組樣本。互換樣本（SP 1P）**證實互換後判定面板會跟著 BPM 框移動**，寫死座標確實行不通。
 - **會蓋住畫面的浮動元素**（樣本：曲子開頭）：
   - `HI-SPEED 操作方法` 說明框（蓋在車道上）
@@ -358,30 +363,25 @@ SCORE DATA 的燈號文字，**8 種都有樣本了**（各自有固定顏色）
 - `random_charts`：正規譜面的事件序列（RANDOM 配置用）
 - `daily_judge`：每次啟動或每天的判定累計（打鍵數）
 
-「今日」範圍沿用參考專案：從啟動時間往前推 N 小時（預設 4）。
+「今日」是遊戲日：日本時間 05:00（每日維護開始）換日，見 P1 實作結果。
 
-### 5.1 曲目主表格式（初稿，待確認）
+### 5.1 曲目主表格式
+
+`resources/songs.json`，型別在 `iu-core::songs`，用本機工具 `tools/songlist` 產生（一首歌一行，方便看 diff）：
 
 ```json
-{
-  "version": "2026-11-06",
-  "songs": [
-    {
-      "id": "固定不變的 ID",
-      "title": "曲名（和遊戲顯示一致）",
-      "artist": "",
-      "genre": "",
-      "version": "收錄版本",
-      "charts": {
-        "SPA": { "level": 11, "notes": 1500, "katate": "地力S" },
-        "DPN": { "level": 6, "notes": 700 }
-      }
-    }
-  ]
-}
+{"source":"BEMANIWiki: …","generated":"2026-11-09","songs":[
+{"id":"<title+artist 的 FNV-1a 64>","title":"Shooting Star","artist":"ReGLOSS","charts":{"SPN":{"level":4,"notes":420}, …}}
+]}
 ```
 
-譜面 key：`SPB/SPN/SPH/SPA/SPL/DPN/DPH/DPA/DPL`。
+- 譜面 key：`SPB/SPN/SPH/SPA/SPL/DPN/DPH/DPA/DPL`；`notes` 不明時省略。
+- `id` 由曲名和演出者算出，文字不變 ID 就不變。
+- 只取辨識和紀錄需要的欄位；類型、BPM、收錄區分、CN／BSS 等標記不取。單手難度（F12）到 P10 再找來源。
+- 2026-11-09 產生結果：1897 首、11687 個譜面，其中 11681 個有 NOTES 數。只有 `Timepiece phase II (CN Ver.)` 不在 NOTES 表裡。`草原の王女-軌跡を辿って-` 在 NOTES 表寫成「奇跡」，使用者在遊戲選曲畫面確認是「軌跡」（等級 N3／H7／A10 也和 wiki 一致），工具用 `NOTES_TITLE_FIXES` 對照表修正。
+- 處理過的格式：曲名欄附帶各譜面曲名（`crew[N]crew -original mix-…`）時只取前面的主曲名；`*1` 這類註記符號去掉；兩頁比對時忽略空白、大小寫、`…`／`...`、`～`／`~` 的差異；等級寫成 `4(5)` 時取括號外的值：只有 DEEP ROAR [SPN] 一筆，使用者在遊戲的選曲畫面確認是 4（2026-11-09），括號裡的 5 是其他版本的等級。
+- 曲名和遊戲畫面上不一致的情況，P3b 標註時遇到再修正。
+- **曲包的曲子使用者無法確認**（使用者沒有購買曲包，2026-11-09）。曲包的曲子在選曲畫面還是看得到曲名和等級（未購買也一樣），可以用來確認曲單；但沒辦法遊玩，所以收集不到結算畫面的樣本。曲包曲子的標註樣本也收集不到，曲名辨識要靠其他協作者的樣本，或使用者端的「邊玩邊學」（4.3）。
 
 ### 5.2 錄影檔名格式
 
@@ -442,7 +442,7 @@ INFINITAS Screenshots\
 - App 名稱 `infinitas-utilities`，repo `naruko-studio/infinitas-utilities`。
 - 介面：繁中／日／英。
 - 前端：Svelte 5 + TS；OBS 畫面用純 JS。
-- 曲目主表：使用者準備，App 只定義格式。
+- 曲目主表：從 BEMANIWiki 的全曲リスト和総ノーツ数リスト用 `tools/songlist` 產生 `resources/songs.json`，只取事實資料（曲名、演出者、各譜面等級和 NOTES 數），跟著 repo 發佈（2026-11-09 使用者決定）。
 - 結算圖片：預設刷新紀錄時才存（和參考專案相同）。
 - OBS：只做錄影控制（場景切換＋開始／停止錄影）。預設每首歌一個檔，改檔名的預設格式是 `{title} [{style}{diff}] {lamp} {djlevel}`，例如 `Mermaid Girl [SPN] H-CLEAR B`（見 5.2）。
 - 不匯入參考專案 v3 的資料。
