@@ -54,6 +54,7 @@ impl Judge {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum PlayStyle {
     Sp,
     Dp,
@@ -61,7 +62,9 @@ pub enum PlayStyle {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Side {
+    #[serde(rename = "1p")]
     P1,
+    #[serde(rename = "2p")]
     P2,
 }
 

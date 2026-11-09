@@ -4,6 +4,7 @@ pub mod config;
 pub mod counter;
 pub mod day;
 pub mod event;
+pub mod label;
 pub mod play;
 pub mod songs;
 pub mod status;

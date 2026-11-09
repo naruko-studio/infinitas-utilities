@@ -62,6 +62,9 @@ pub struct CaptureConfig {
     /// `<Pictures>\INFINITAS Screenshots\dev-capture\<w>x<h>\unsorted\`
     /// when the judge panel cannot be read, and every few seconds in play.
     pub dev_capture: bool,
+    /// The game's F12 screenshot folder, offered as a source in the
+    /// annotator (copied from, never modified).
+    pub game_screenshot_dir: PathBuf,
 }
 
 impl Default for CaptureConfig {
@@ -70,6 +73,7 @@ impl Default for CaptureConfig {
             spout_sender: "Spout_OBS_Filter".to_owned(),
             fps: 30,
             dev_capture: false,
+            game_screenshot_dir: PathBuf::from(r"C:\Games\beatmania IIDX INFINITAS\screenshots"),
         }
     }
 }
