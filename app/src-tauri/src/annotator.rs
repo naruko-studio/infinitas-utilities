@@ -8,7 +8,7 @@
 
 use std::path::{Path, PathBuf};
 
-use iu_core::label::{self, DjLevel, Label, Lamp, PlayLabel, ResultLabel, Screen};
+use iu_core::label::{self, DeadPoint, DjLevel, Label, Lamp, PlayLabel, ResultLabel, Screen};
 use iu_core::songs::Chart;
 use iu_recog::{PlayResources, ResultResources};
 use serde::{Deserialize, Serialize};
@@ -178,8 +178,8 @@ impl Annotator {
         }))
     }
 
-    /// The numbers only; lamp, DJ LEVEL, chart and song are not recognized
-    /// yet, so they get placeholders for the person to set.
+    /// Numbers and every recognized word; what is not recognized (song,
+    /// classes never seen yet) gets a placeholder for the person to set.
     fn suggest_result(&self, img: &image::RgbImage) -> Option<Label> {
         let res = self
             .result
@@ -187,16 +187,24 @@ impl Annotator {
             .find(|r| (r.width, r.height) == img.dimensions())?;
         let side = res.detect(img)?;
         let r = res.read(img, side).ok()?;
+        let sym = res.read_symbols(img, side);
+        // The dead note equals PG+GR+GD+CB (PLAN 4.2); the measure is not
+        // read yet.
+        let dead = sym.dead.unwrap_or(false).then(|| DeadPoint {
+            note: r.judge.pg + r.judge.gr + r.judge.gd + r.combo_break,
+            measure: 0,
+        });
         Some(Label::Result(ResultLabel {
             side: r.side,
-            chart: Chart::Spn,
-            level: 1,
+            chart: sym.chart.unwrap_or(Chart::Spn),
+            level: sym.level.unwrap_or(1),
             song_id: None,
             title: String::new(),
             notes: r.notes,
-            lamp: Lamp::Clear,
-            best_lamp: None,
-            dj_level: DjLevel::A,
+            lamp: sym.lamp.unwrap_or(Lamp::Clear),
+            best_lamp: sym.best_lamp.flatten(),
+            dj_level: sym.dj_level.unwrap_or(DjLevel::A),
+            best_dj_level: sym.best_dj_level.flatten(),
             score: r.score,
             best_score: r.best_score,
             miss_count: r.miss_count,
@@ -205,8 +213,8 @@ impl Annotator {
             combo_break: r.combo_break,
             fast: r.fast,
             slow: r.slow,
-            dead: None,
-            use_option: None,
+            dead,
+            use_option: sym.use_option.flatten(),
         }))
     }
 

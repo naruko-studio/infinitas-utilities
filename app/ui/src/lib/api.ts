@@ -103,6 +103,7 @@ export interface ResultLabel {
   lamp: Lamp;
   bestLamp: Lamp | null;
   djLevel: DjLevel;
+  bestDjLevel: DjLevel | null;
   score: number;
   bestScore: number | null;
   missCount: number | null;

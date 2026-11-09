@@ -123,6 +123,7 @@
           lamp: "clear",
           bestLamp: null,
           djLevel: "A",
+          bestDjLevel: null,
           score: 0,
           bestScore: null,
           missCount: 0,
@@ -368,6 +369,18 @@
                 >
                   <option value="">—</option>
                   {#each LAMPS as l (l)}<option>{l}</option>{/each}
+                </select>
+              </label>
+              <label>DJ LEVEL
+                <select
+                  value={label.bestDjLevel ?? ""}
+                  onchange={(e) => {
+                    if (label?.screen === "result")
+                      label.bestDjLevel = (e.currentTarget.value || null) as DjLevel | null;
+                  }}
+                >
+                  <option value="">—</option>
+                  {#each DJ as d (d)}<option>{d}</option>{/each}
                 </select>
               </label>
               <label>SCORE
