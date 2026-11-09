@@ -1,0 +1,18 @@
+[package]
+name = "resgen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow = "1.0.104"
+image = { version = "0.25.10", default-features = false }
+iu-core = { path = "../../crates/iu-core" }
+iu-fixtures = { path = "../../crates/iu-fixtures" }
+iu-recog = { path = "../../crates/iu-recog" }
+serde_json = "1.0.154"
+
+[lints]
+workspace = true
