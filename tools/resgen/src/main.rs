@@ -11,6 +11,7 @@
 
 mod play;
 mod result;
+mod result_symbols;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

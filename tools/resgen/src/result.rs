@@ -76,10 +76,10 @@ const SEEDS: [Seed; 13] = [
     },
 ];
 
-struct Sample {
-    name: String,
-    image: RgbImage,
-    label: ResultLabel,
+pub(crate) struct Sample {
+    pub(crate) name: String,
+    pub(crate) image: RgbImage,
+    pub(crate) label: ResultLabel,
 }
 
 impl Sample {
@@ -185,6 +185,7 @@ fn build(w: u32, h: u32, samples: &[Sample], root: &Path) -> anyhow::Result<Resu
         side: Side::P1,
         caption: [cx, cy],
         fields: p1_fields,
+        symbols: BTreeMap::new(),
     });
 
     // 4. 2P: search around the shifted 1P positions.
@@ -224,10 +225,15 @@ fn build(w: u32, h: u32, samples: &[Sample], root: &Path) -> anyhow::Result<Resu
             side: Side::P2,
             caption: [x, y],
             fields,
+            symbols: BTreeMap::new(),
         });
     }
 
-    // 5. Caption threshold between result and other screens.
+    // 5. Symbol fields (lamps, DJ LEVEL, chart, style, DEAD POINT, USE
+    //    OPTION): whole-word class masks.
+    let symbol_sets = crate::result_symbols::build(samples, &mut sides)?;
+
+    // 6. Caption threshold between result and other screens.
     let worst = samples
         .iter()
         .map(|s| {
@@ -257,14 +263,22 @@ fn build(w: u32, h: u32, samples: &[Sample], root: &Path) -> anyhow::Result<Resu
         caption_max_distance,
         sides,
         fonts,
+        symbol_sets,
     };
 
-    // 6. Read every sample back with the new resources.
+    // 7. Read every sample back with the new resources.
     for s in samples {
         let side = res
             .detect(&s.image)
             .with_context(|| format!("{}: not detected as a result screen", s.name))?;
         ensure!(side.side == s.label.side, "{}: wrong side", s.name);
+        let want = crate::result_symbols::expected(&s.label);
+        let got = res.read_symbols(&s.image, side);
+        ensure!(
+            got == want,
+            "{}: symbols read {got:?}, labelled {want:?}",
+            s.name
+        );
         for f in NumberField::ALL {
             let got = res
                 .read_field(&s.image, side, f)
