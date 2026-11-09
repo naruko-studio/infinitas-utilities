@@ -90,12 +90,35 @@ const IU = (() => {
     },
   };
 
-  function strings() {
-    const lang = (navigator.language || "en").toLowerCase();
-    if (lang.startsWith("ja")) return STRINGS.ja;
-    if (lang.startsWith("zh")) return STRINGS["zh-TW"];
-    return STRINGS.en;
+  const LANGS = { auto: "Auto / 自動", en: "English", "zh-TW": "繁體中文", ja: "日本語" };
+  const LANG_KEY = "iu.lang";
+
+  /** Chosen language: `?lang=` (OBS pages), else the phone page's saved
+   *  choice, else "auto". */
+  function lang() {
+    const q = new URLSearchParams(location.search).get("lang");
+    if (q && q in LANGS) return q;
+    try {
+      const saved = localStorage.getItem(LANG_KEY);
+      if (saved && saved in LANGS) return saved;
+    } catch {}
+    return "auto";
   }
 
-  return { JUDGES, connect, getJSON, notes, shownJudge, fmt, strings };
+  function setLang(value) {
+    try {
+      localStorage.setItem(LANG_KEY, value);
+    } catch {}
+  }
+
+  function strings() {
+    let l = lang();
+    if (l === "auto") {
+      const nav = (navigator.language || "en").toLowerCase();
+      l = nav.startsWith("ja") ? "ja" : nav.startsWith("zh") ? "zh-TW" : "en";
+    }
+    return STRINGS[l];
+  }
+
+  return { JUDGES, LANGS, connect, getJSON, notes, shownJudge, fmt, lang, setLang, strings };
 })();

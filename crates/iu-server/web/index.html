@@ -28,7 +28,9 @@
         font-family: system-ui, "Segoe UI", "Hiragino Sans", "Noto Sans CJK TC", sans-serif;
         font-variant-numeric: tabular-nums;
       }
-      h1 { font-size: 1.05rem; margin: 0 0 10px; color: var(--muted); font-weight: 600; }
+      header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+      h1 { font-size: 1.05rem; margin: 0; color: var(--muted); font-weight: 600; }
+      #lang { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
       h2 { font-size: 0.9rem; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
       .offline {
         display: none;
@@ -65,7 +67,10 @@
     </style>
   </head>
   <body>
-    <h1>infinitas-utilities</h1>
+    <header>
+      <h1>infinitas-utilities</h1>
+      <select id="lang" aria-label="Language"></select>
+    </header>
     <div class="offline" id="offline"></div>
 
     <section class="card">
@@ -99,6 +104,16 @@
     <script>
       const t = IU.strings();
       const $ = (id) => document.getElementById(id);
+
+      // Language: saved on this phone; changing it reloads the page.
+      const langSel = $("lang");
+      for (const [code, name] of Object.entries(IU.LANGS)) langSel.add(new Option(name, code));
+      langSel.value = IU.lang();
+      langSel.onchange = () => {
+        IU.setLang(langSel.value);
+        location.reload();
+      };
+
       $("t-today").textContent = t.today;
       $("t-keys").textContent = t.keystrokes;
       $("t-plays").textContent = t.plays;
