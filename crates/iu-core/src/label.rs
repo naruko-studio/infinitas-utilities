@@ -147,6 +147,9 @@ pub struct ResultLabel {
     pub fast: u32,
     pub slow: u32,
     pub dead: Option<DeadPoint>,
+    /// The USE OPTION banner under the graph (e.g. `A-SCR`, `LEGACY`).
+    #[serde(default)]
+    pub use_option: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -243,8 +246,12 @@ pub fn check(label: &Label) -> Vec<String> {
                     "PG+GR+GD+CB = {reached} ≠ DEAD POINT NOTE {}",
                     dead.note
                 )),
-                None if reached != r.notes => {
-                    problems.push(format!("PG+GR+GD+CB = {reached} ≠ NOTES {}", r.notes))
+                // Usually equal, but it can fall short: auto-scratch
+                // options leave scratch notes unjudged, and releasing a
+                // charge note early loses its end judgement without a combo
+                // break. It can never exceed NOTES.
+                None if reached > r.notes => {
+                    problems.push(format!("PG+GR+GD+CB = {reached} > NOTES {}", r.notes))
                 }
                 _ => {}
             }
@@ -296,6 +303,7 @@ mod tests {
             fast: 0,
             slow: 0,
             dead: None,
+            use_option: None,
         }
     }
 
