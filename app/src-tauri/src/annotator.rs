@@ -8,11 +8,12 @@
 
 use std::path::{Path, PathBuf};
 
-use iu_core::label::{self, Label, PlayLabel, Screen};
-use iu_recog::PlayResources;
+use iu_core::label::{self, DjLevel, Label, Lamp, PlayLabel, ResultLabel, Screen};
+use iu_core::songs::Chart;
+use iu_recog::{PlayResources, ResultResources};
 use serde::{Deserialize, Serialize};
 
-use crate::engine::PLAY_RESOURCES;
+use crate::engine::{PLAY_RESOURCES, RESULT_RESOURCES};
 
 /// Sub-folders of `dev-capture\<w>x<h>\`, besides the screen kinds.
 const UNSORTED: &str = "unsorted";
@@ -54,6 +55,7 @@ pub struct Annotator {
     dev_capture: PathBuf,
     game_dir: PathBuf,
     play: Vec<PlayResources>,
+    result: Vec<ResultResources>,
 }
 
 impl Annotator {
@@ -69,6 +71,10 @@ impl Annotator {
             dev_capture,
             game_dir,
             play,
+            result: RESULT_RESOURCES
+                .iter()
+                .filter_map(|j| ResultResources::from_json(j).ok())
+                .collect(),
         })
     }
 
@@ -156,6 +162,10 @@ impl Annotator {
     }
 
     fn suggest(&self, img: &image::RgbImage) -> Option<Label> {
+        self.suggest_play(img).or_else(|| self.suggest_result(img))
+    }
+
+    fn suggest_play(&self, img: &image::RgbImage) -> Option<Label> {
         let res = self
             .play
             .iter()
@@ -165,6 +175,38 @@ impl Annotator {
         Some(Label::Play(PlayLabel {
             layout: anchor.layout,
             judge,
+        }))
+    }
+
+    /// The numbers only; lamp, DJ LEVEL, chart and song are not recognized
+    /// yet, so they get placeholders for the person to set.
+    fn suggest_result(&self, img: &image::RgbImage) -> Option<Label> {
+        let res = self
+            .result
+            .iter()
+            .find(|r| (r.width, r.height) == img.dimensions())?;
+        let side = res.detect(img)?;
+        let r = res.read(img, side).ok()?;
+        Some(Label::Result(ResultLabel {
+            side: r.side,
+            chart: Chart::Spn,
+            level: 1,
+            song_id: None,
+            title: String::new(),
+            notes: r.notes,
+            lamp: Lamp::Clear,
+            best_lamp: None,
+            dj_level: DjLevel::A,
+            score: r.score,
+            best_score: r.best_score,
+            miss_count: r.miss_count,
+            best_miss_count: r.best_miss_count,
+            judge: r.judge,
+            combo_break: r.combo_break,
+            fast: r.fast,
+            slow: r.slow,
+            dead: None,
+            use_option: None,
         }))
     }
 

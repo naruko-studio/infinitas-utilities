@@ -132,6 +132,7 @@
           fast: 0,
           slow: 0,
           dead: null,
+          useOption: null,
         };
       case "select":
         return {
@@ -392,6 +393,16 @@
               </label>
             </div>
           </details>
+          <label>USE OPTION
+            <input
+              placeholder="—"
+              value={label.useOption ?? ""}
+              oninput={(e) => {
+                if (label?.screen === "result")
+                  label.useOption = e.currentTarget.value.trim() || null;
+              }}
+            />
+          </label>
           <label class="inline">
             <input
               type="checkbox"

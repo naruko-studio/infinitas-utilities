@@ -112,6 +112,7 @@ export interface ResultLabel {
   fast: number;
   slow: number;
   dead: { note: number; measure: number } | null;
+  useOption: string | null;
 }
 
 export interface SelectLabel {
