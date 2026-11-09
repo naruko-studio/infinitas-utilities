@@ -11,7 +11,8 @@ use std::collections::BTreeMap;
 
 use image::RgbImage;
 use iu_core::Side;
-use iu_core::label::ResultJudge;
+use iu_core::label::{DjLevel, Lamp, ResultJudge};
+use iu_core::songs::Chart;
 use serde::{Deserialize, Serialize};
 
 use crate::mask::{Ink, Mask};
@@ -98,6 +99,9 @@ pub struct SideLayout {
     /// Top-left of the `CLEAR TYPE` caption mask.
     pub caption: [u32; 2],
     pub fields: BTreeMap<String, FieldPos>,
+    /// Symbol fields (lamps, DJ LEVEL, chart…), by [`symbol`] name.
+    #[serde(default)]
+    pub symbols: BTreeMap<String, SymbolPos>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,6 +114,9 @@ pub struct ResultResources {
     pub caption_max_distance: u32,
     pub sides: Vec<SideLayout>,
     pub fonts: BTreeMap<String, Font>,
+    /// Symbol sets: whole-word masks per class, by name.
+    #[serde(default)]
+    pub symbol_sets: BTreeMap<String, SymbolSet>,
 }
 
 /// Everything read from one result screen.
@@ -270,6 +277,114 @@ impl ResultResources {
     }
 }
 
+/// Names of the symbol fields.
+pub mod symbol {
+    pub const LAMP: &str = "lamp";
+    pub const BEST_LAMP: &str = "bestLamp";
+    pub const DJ_LEVEL: &str = "djLevel";
+    pub const BEST_DJ_LEVEL: &str = "bestDjLevel";
+    /// Difficulty and level, as one word: class `N4` = NORMAL 4.
+    pub const CHART: &str = "chart";
+    /// The SP / DP logo: class `sp` or `dp`.
+    pub const STYLE: &str = "style";
+    /// The DEAD POINT box: class `present` or `none`.
+    pub const DEAD_POINT: &str = "deadPoint";
+    /// The USE OPTION banner text, or `none`.
+    pub const USE_OPTION: &str = "useOption";
+    /// The class for "—" or an absent element.
+    pub const NONE: &str = "none";
+}
+
+/// A fixed set of words (lamps, DJ levels…) matched as whole masks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymbolSet {
+    pub width: u32,
+    pub height: u32,
+    pub ink: Ink,
+    /// Class name → mask. Classes never seen in the samples are missing
+    /// and read as unknown.
+    pub classes: BTreeMap<String, Mask>,
+    /// A region further than this from every class is unknown.
+    pub max_distance: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SymbolPos {
+    pub x: u32,
+    pub y: u32,
+    /// Key into [`ResultResources::symbol_sets`].
+    pub set: String,
+}
+
+/// The words read from a result screen. `None` = not recognized (a class
+/// not learned yet, or something covering it).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultSymbols {
+    pub lamp: Option<Lamp>,
+    /// `Some(None)` = shown as "—".
+    pub best_lamp: Option<Option<Lamp>>,
+    pub dj_level: Option<DjLevel>,
+    pub best_dj_level: Option<Option<DjLevel>>,
+    pub chart: Option<Chart>,
+    pub level: Option<u8>,
+    pub dead: Option<bool>,
+    /// `Some(None)` = no USE OPTION banner.
+    pub use_option: Option<Option<String>>,
+}
+
+impl ResultResources {
+    /// The class of a symbol field, if one is within the threshold.
+    pub fn read_symbol(&self, img: &RgbImage, side: &SideLayout, name: &str) -> Option<&str> {
+        let pos = side.symbols.get(name)?;
+        let set = self.symbol_sets.get(&pos.set)?;
+        let m = Mask::from_image_ink(img, pos.x, pos.y, set.width, set.height, set.ink);
+        set.classes
+            .iter()
+            .map(|(class, mask)| (mask.distance(&m), class.as_str()))
+            .filter(|(d, _)| *d <= set.max_distance)
+            .min_by_key(|(d, _)| *d)
+            .map(|(_, class)| class)
+    }
+
+    pub fn read_symbols(&self, img: &RgbImage, side: &SideLayout) -> ResultSymbols {
+        let class = |name| self.read_symbol(img, side, name);
+        let style = class(symbol::STYLE);
+        let chart_word = class(symbol::CHART);
+        let chart = style.zip(chart_word).and_then(|(s, w)| {
+            let difficulty = w.chars().next()?;
+            format!("{}{difficulty}", s.to_ascii_uppercase())
+                .parse()
+                .ok()
+        });
+        let level = chart_word.and_then(|w| w.get(1..)?.parse().ok());
+        ResultSymbols {
+            lamp: class(symbol::LAMP).and_then(parse_class),
+            best_lamp: class(symbol::BEST_LAMP).and_then(parse_nullable),
+            dj_level: class(symbol::DJ_LEVEL).and_then(parse_class),
+            best_dj_level: class(symbol::BEST_DJ_LEVEL).and_then(parse_nullable),
+            chart,
+            level,
+            dead: class(symbol::DEAD_POINT).map(|c| c != symbol::NONE),
+            use_option: class(symbol::USE_OPTION)
+                .map(|c| (c != symbol::NONE).then(|| c.to_owned())),
+        }
+    }
+}
+
+/// A class name as its serde value (`full-combo` → `Lamp::FullCombo`).
+fn parse_class<T: serde::de::DeserializeOwned>(class: &str) -> Option<T> {
+    serde_json::from_value(serde_json::Value::String(class.to_owned())).ok()
+}
+
+/// Like [`parse_class`], with `none` meaning "—".
+fn parse_nullable<T: serde::de::DeserializeOwned>(class: &str) -> Option<Option<T>> {
+    if class == symbol::NONE {
+        Some(None)
+    } else {
+        parse_class(class).map(Some)
+    }
+}
 /// Nearest digit mask and its distance.
 pub fn classify(font: &Font, cell: &Mask) -> (u32, u32) {
     font.digits

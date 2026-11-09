@@ -19,6 +19,9 @@ pub enum Ink {
     /// Every channel above 200: white text next to dimmed text (the leading
     /// zeros of the result screen's NOTES count) or a light background.
     Bright,
+    /// Any channel above 200: flat colored text (the clear lamps, the chart
+    /// name) on the dark panels, whose channels stay at or below ~102.
+    Vivid,
 }
 
 impl Ink {
@@ -28,6 +31,7 @@ impl Ink {
             Ink::White => r > t && g > t && b > t,
             Ink::Cyan => g > t && b > t,
             Ink::Bright => r > 200 && g > 200 && b > 200,
+            Ink::Vivid => r > 200 || g > 200 || b > 200,
         }
     }
 }

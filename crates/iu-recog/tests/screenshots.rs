@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use iu_core::label::{Label, Screen};
 use iu_core::{Judge, PlayLayout};
+use iu_recog::result::ResultSymbols;
 use iu_recog::{PlayResources, ResultReading, ResultResources};
 
 fn play_resources(width: u32, height: u32) -> Result<PlayResources, String> {
@@ -90,6 +91,20 @@ fn result_screens_read_correctly() {
         };
         if got != expected {
             return Err(format!("read {got:?}\n want {expected:?}"));
+        }
+        let symbols = res.read_symbols(img, side);
+        let want_symbols = ResultSymbols {
+            lamp: Some(want.lamp),
+            best_lamp: Some(want.best_lamp),
+            dj_level: Some(want.dj_level),
+            best_dj_level: Some(want.best_dj_level),
+            chart: Some(want.chart),
+            level: Some(want.level),
+            dead: Some(want.dead.is_some()),
+            use_option: Some(want.use_option.clone()),
+        };
+        if symbols != want_symbols {
+            return Err(format!("symbols {symbols:?}\n want {want_symbols:?}"));
         }
         Ok(())
     });
