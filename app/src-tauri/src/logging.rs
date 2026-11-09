@@ -14,7 +14,15 @@ pub fn init(log_dir: &Path, level: &str) -> Option<WorkerGuard> {
         .or_else(|_| EnvFilter::try_new(level))
         .unwrap_or_else(|_| EnvFilter::new("info"));
 
-    let stderr = cfg!(debug_assertions).then(|| fmt::layer().with_writer(std::io::stderr));
+    // Local time with offset: play sessions are read against the player's
+    // clock. (File names still roll over at UTC midnight; the appender has
+    // no local-time option.)
+    let timer = fmt::time::ChronoLocal::rfc_3339;
+    let stderr = cfg!(debug_assertions).then(|| {
+        fmt::layer()
+            .with_timer(timer())
+            .with_writer(std::io::stderr)
+    });
 
     // The appender prunes old files by listing the folder, so it must exist.
     if let Err(e) = std::fs::create_dir_all(log_dir) {
@@ -30,7 +38,10 @@ pub fn init(log_dir: &Path, level: &str) -> Option<WorkerGuard> {
     let (file_layer, guard) = match file {
         Ok(appender) => {
             let (writer, guard) = tracing_appender::non_blocking(appender);
-            let layer = fmt::layer().with_ansi(false).with_writer(writer);
+            let layer = fmt::layer()
+                .with_ansi(false)
+                .with_timer(timer())
+                .with_writer(writer);
             (Some(layer), Some(guard))
         }
         Err(e) => {

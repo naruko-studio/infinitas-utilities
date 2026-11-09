@@ -10,13 +10,17 @@ publish.workspace = true
 name = "infinitas_utilities_lib"
 
 [dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde"] }
+dirs = "7.0.0"
+iu-capture = { path = "../../crates/iu-capture" }
 iu-core = { path = "../../crates/iu-core" }
+iu-recog = { path = "../../crates/iu-recog" }
+iu-db = { path = "../../crates/iu-db" }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.154"
 tauri = { version = "2.12.5", features = [] }
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
-tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "chrono"] }
 
 [lints]
 workspace = true
