@@ -30,4 +30,14 @@ export const ja: Dictionary = {
   "capture.button": "現在の画面を保存",
   "capture.saved": "保存しました：{path}",
   "capture.failed": "保存できませんでした：{error}",
+
+  "web.title": "OBS とスマートフォン",
+  "web.obs": "OBS ブラウザソース（この PC）：",
+  "web.copy": "コピー",
+  "web.copied": "コピーしました：{url}",
+  "web.lan": "LAN 内のスマートフォンからの接続を許可",
+  "web.lan.hint":
+    "同じネットワークのスマートフォンでこのアドレスを開いてください。Windows がファイアウォールの許可を求める場合があります。ページは閲覧のみでパスワードはありません。自宅のネットワークでのみオンにし、公衆 Wi-Fi ではオンにしないでください。",
+  "web.noLanIp": "この PC の LAN アドレスが見つかりませんでした。",
+  "web.error": "ポート {port} で Web サーバーを起動できませんでした：{error}",
 };

@@ -29,4 +29,14 @@ export const zhTW: Dictionary = {
   "capture.button": "儲存目前畫面",
   "capture.saved": "已儲存：{path}",
   "capture.failed": "無法儲存：{error}",
+
+  "web.title": "OBS 和手機",
+  "web.obs": "OBS 瀏覽器來源（本機）：",
+  "web.copy": "複製",
+  "web.copied": "已複製：{url}",
+  "web.lan": "允許區網內的手機連線",
+  "web.lan.hint":
+    "在同一個網路的手機上打開這個網址。Windows 可能會詢問是否允許 App 通過防火牆。頁面只能查看、沒有密碼，請只在家裡的網路打開，不要在公共 Wi-Fi 打開。",
+  "web.noLanIp": "找不到這台電腦的區網位址。",
+  "web.error": "網頁伺服器無法在 port {port} 啟動：{error}",
 };

@@ -25,7 +25,7 @@ export type Connection =
   | "unsupportedResolution"
   | "error";
 
-/** Mirrors `engine::Status`. */
+/** Mirrors `iu_core::status::Status`. */
 export interface Status {
   connection: Connection;
   detail: string | null;
@@ -52,5 +52,20 @@ export const setDevCapture = (enabled: boolean) =>
 
 export const captureFrame = () => invoke<string>("capture_frame");
 
-export const onStatus = (handler: (s: Status) => void): Promise<UnlistenFn> =>
+/** Mirrors `web::ServerInfo`. */
+export interface ServerInfo {
+  running: boolean;
+  port: number;
+  lanAccess: boolean;
+  error: string | null;
+  localUrl: string;
+  lanUrl: string | null;
+}
+
+export const getServerInfo = () => invoke<ServerInfo>("get_server_info");
+
+export const setLanAccess = (enabled: boolean) =>
+  invoke<ServerInfo>("set_lan_access", { enabled });
+
+export const onStatus =(handler: (s: Status) => void): Promise<UnlistenFn> =>
   listen<Status>("engine://status", (e) => handler(e.payload));

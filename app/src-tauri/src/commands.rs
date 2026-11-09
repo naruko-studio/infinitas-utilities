@@ -2,11 +2,13 @@
 
 use std::time::Duration;
 
+use iu_core::status::Status;
 use iu_core::{Config, Language};
 use tauri::State;
 
 use crate::AppState;
-use crate::engine::{Command, Status};
+use crate::engine::Command;
+use crate::web::ServerInfo;
 
 #[tauri::command]
 pub fn get_config(state: State<'_, AppState>) -> Config {
@@ -57,4 +59,28 @@ fn send(state: &AppState, cmd: Command) -> Result<(), String> {
         .expect("engine lock poisoned")
         .send(cmd)
         .map_err(|_| "the capture engine has stopped".to_owned())
+}
+
+#[tauri::command]
+pub async fn get_server_info(state: State<'_, AppState>) -> Result<ServerInfo, String> {
+    Ok(state.web.info().await)
+}
+
+/// Opens (or closes) the web server to the LAN for phones, then restarts it.
+#[tauri::command]
+pub async fn set_lan_access(
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<ServerInfo, String> {
+    let server = {
+        let mut config = state.config.lock().expect("config lock poisoned");
+        config.server.lan_access = enabled;
+        config.save(&state.config_path).map_err(|e| {
+            tracing::error!("{e}");
+            e.to_string()
+        })?;
+        config.server.clone()
+    };
+    state.web.apply(server).await;
+    Ok(state.web.info().await)
 }

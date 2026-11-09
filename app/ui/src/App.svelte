@@ -3,11 +3,14 @@
   import {
     captureFrame,
     getConfig,
+    getServerInfo,
     getStatus,
     onStatus,
     setDevCapture,
+    setLanAccess,
     setLanguage,
     type Judge,
+    type ServerInfo,
     type Status,
   } from "./lib/api";
   import {
@@ -26,9 +29,16 @@
   let status = $state<Status | null>(null);
   let message = $state("");
   let error = $state("");
+  let server = $state<ServerInfo | null>(null);
+  let lanBusy = $state(false);
+
+  const OBS_PAGES = ["/obs/counter.html", "/obs/judge.html"] as const;
 
   $effect(() => {
     getVersion().then((v) => (version = v));
+    // The server starts right after the window; ask again shortly.
+    getServerInfo().then((s) => (server = s));
+    const retry = setTimeout(() => getServerInfo().then((s) => (server = s)), 1500);
     getConfig().then((config) => {
       language = config.language;
       devCapture = config.capture.dev_capture;
@@ -37,9 +47,28 @@
     getStatus().then((s) => (status = s));
     const unlisten = onStatus((s) => (status = s));
     return () => {
+      clearTimeout(retry);
       unlisten.then((f) => f());
     };
   });
+
+  async function onLanChange(e: Event) {
+    const enabled = (e.currentTarget as HTMLInputElement).checked;
+    lanBusy = true;
+    error = "";
+    try {
+      server = await setLanAccess(enabled);
+    } catch (err) {
+      error = t("error.configSave", { error: String(err) });
+    } finally {
+      lanBusy = false;
+    }
+  }
+
+  async function copy(text: string) {
+    await navigator.clipboard.writeText(text);
+    message = t("web.copied", { url: text });
+  }
 
   const connectionText = $derived.by(() => {
     if (!status) return "";
@@ -113,6 +142,48 @@
           {/if}
         {/if}
       </div>
+    </section>
+  {/if}
+
+  {#if server}
+    <section class="card web">
+      <h2>{t("web.title")}</h2>
+      {#if server.running}
+        <div class="muted">{t("web.obs")}</div>
+        <ul class="urls">
+          {#each OBS_PAGES as page (page)}
+            {@const url = server.localUrl + page}
+            <li>
+              <code>{url}</code>
+              <button onclick={() => copy(url)}>{t("web.copy")}</button>
+            </li>
+          {/each}
+        </ul>
+        <label>
+          <input
+            type="checkbox"
+            checked={server.lanAccess}
+            disabled={lanBusy}
+            onchange={onLanChange}
+          />
+          {t("web.lan")}
+        </label>
+        {#if server.lanAccess}
+          {#if server.lanUrl}
+            <ul class="urls">
+              <li>
+                <code>{server.lanUrl}/</code>
+                <button onclick={() => copy(server!.lanUrl + "/")}>{t("web.copy")}</button>
+              </li>
+            </ul>
+          {:else}
+            <p class="hint">{t("web.noLanIp")}</p>
+          {/if}
+          <p class="hint">{t("web.lan.hint")}</p>
+        {/if}
+      {:else}
+        <p class="error">{t("web.error", { port: server.port, error: server.error ?? "" })}</p>
+      {/if}
     </section>
   {/if}
 
@@ -245,6 +316,30 @@
   }
   th.cb {
     color: #ff8a80;
+  }
+  .web {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .urls {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .urls li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  code {
+    background: #23262e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    user-select: all;
   }
   .settings {
     display: flex;

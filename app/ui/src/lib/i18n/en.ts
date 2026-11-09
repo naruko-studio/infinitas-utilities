@@ -30,6 +30,16 @@ export const en = {
   "capture.button": "Save current frame",
   "capture.saved": "Saved: {path}",
   "capture.failed": "Could not save: {error}",
+
+  "web.title": "OBS and phone",
+  "web.obs": "OBS browser sources (this PC):",
+  "web.copy": "Copy",
+  "web.copied": "Copied: {url}",
+  "web.lan": "Allow phones on the LAN to connect",
+  "web.lan.hint":
+    "Open this address on a phone on the same network. Windows may ask to allow the app through the firewall. The pages are read-only and have no password: only turn this on at home, not on public Wi-Fi.",
+  "web.noLanIp": "Could not find this PC's LAN address.",
+  "web.error": "The web server could not start on port {port}: {error}",
 } as const;
 
 export type MessageKey = keyof typeof en;
