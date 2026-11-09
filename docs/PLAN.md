@@ -246,6 +246,26 @@ infinitas-utilities/
   - 標註畫面：左邊是截圖清單，來源有 dev-capture 的各資料夾和遊戲的 F12 資料夾（設定檔 `capture.game_screenshot_dir`），可以篩選待標註、全部、各分類。中間顯示截圖，右邊是表單：遊玩畫面用辨識結果預填；曲名從曲目主表選，選了就自動帶入等級和 NOTES；數字不一致時即時列出問題。儲存時會把截圖歸檔到 `dev-capture\<寬>x<高>\<畫面種類>\`：F12 截圖用複製的，遊戲資料夾不會被改；dev-capture 裡的截圖用移動的。「丟棄」會把截圖移到 `discarded\`，不會刪除。只能讀寫這兩個根目錄底下的 PNG。
   - `cargo resources`（= `resgen all`）：先檢查所有標註（解析和一致性），再產生全部資源，最後用 `IU_REQUIRE_FIXTURES=1` 跑截圖回歸測試。
   - 曲目主表：見 4.4、5.1。
+- **P3b 進度（2026-11-09，進行中）**：
+  - 標註：自己標了 22 張結算截圖（SP 1P／2P、DP 1P／2P、關門 3 張、輔助選項 3 張、有角色的背景 1 張）。和曲目主表交叉檢查等級和 NOTES，全部一致。
+  - 一致性規則修正：`PG+GR+GD+CB` 可能**少於** NOTES，但不會超過。例如：A-SCR 這類自動皿的輔助選項，皿的音符不判定（FLOWER：559／575）；CN 提早放開會丟掉尾端判定，卻不算 COMBO BREAK（蠍火 BlackY Remix：519／521）。所以規則改成「不可超過 NOTES」；關門時仍要等於 DEAD POINT 的 NOTE。標註新增 `useOption`（USE OPTION 欄，例：A-SCR、LEGACY）。
+  - 結算畫面數字辨識（`iu-recog::result`、`resgen result`）：用 `CLEAR TYPE` 字樣判斷是不是結算畫面，以及是哪一側（1P 在 (41, 421)，2P 在 +1350）。每個數字都是向右對齊、固定間距的數字格。字型有 6 種，每種的同一數字差距都是 0（逐像素完全相同）：
+
+    | 欄位 | 字型（寬×高，間距） | 二值化 |
+    | --- | --- | --- |
+    | PG–PR | judge 23×15，28 | 每個通道 > 200（`Bright`） |
+    | COMBO BREAK | combo 23×15，28（背景是條紋，另一套遮罩） | `Bright` |
+    | FAST／SLOW | small 14×12，17 | `Bright` |
+    | 這次的 SCORE、MISS COUNT | big-cyan 30×20，36 | 綠藍 > 128（`Cyan`） |
+    | 最佳 SCORE、MISS COUNT | big 30×20，36 | `Bright` |
+    | NOTES（下方曲名欄） | notes 17×15，21（前置的 0 比較暗，用 `Bright` 排除） | `Bright` |
+
+    - 2P 不是單純平移：大部分欄位 +1349～+1350，FAST／SLOW +1344。所以 2P 的位置由 `resgen` 在 ±8 px 內搜尋。
+    - 用 `Bright` 而不是 128 的原因：有角色的結算背景是亮的，128 會把背景也當成數字。
+    - NOTES 的樣本裡沒有 9，暫時用 6 旋轉 180° 代替（七段式字型），之後補樣本。
+    - 「—」（MISS COUNT、最佳成績）讀成 null。
+  - 結果：22 張的版型和所有數字全部讀對；其他畫面離 `CLEAR TYPE` 遮罩至少 687，結算畫面最多 76。標註畫面打開結算截圖時，會用辨識結果預填所有數字。
+  - 還沒做：燈號（CLEAR TYPE）、DJ LEVEL、難度和等級、SP／DP、DEAD POINT、USE OPTION、引擎串接（寫進 DB）、選曲畫面、曲名。
 - 每種組合（SP 1P／2P × 圖表在中間／在外側、DP 資訊欄左／右）都要各收一組樣本。互換樣本（SP 1P）**證實互換後判定面板會跟著 BPM 框移動**，寫死座標確實行不通。
 - **會蓋住畫面的浮動元素**（樣本：曲子開頭）：
   - `HI-SPEED 操作方法` 說明框（蓋在車道上）
