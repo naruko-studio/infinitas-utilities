@@ -137,6 +137,9 @@ pub struct ResultLabel {
     pub lamp: Lamp,
     pub best_lamp: Option<Lamp>,
     pub dj_level: DjLevel,
+    /// `None` when shown as "—".
+    #[serde(default)]
+    pub best_dj_level: Option<DjLevel>,
     pub score: u32,
     pub best_score: Option<u32>,
     /// `None` when shown as "—" (assist options, early stop).
@@ -261,6 +264,22 @@ pub fn check(label: &Label) -> Vec<String> {
             if r.lamp == Lamp::FullCombo && r.combo_break != 0 {
                 problems.push("FULL COMBO with combo breaks".to_owned());
             }
+            if r.dead.is_some() && r.lamp != Lamp::Failed {
+                problems.push("DEAD POINT but not FAILED".to_owned());
+            }
+            if r.lamp == Lamp::AssistClear && r.use_option.is_none() {
+                problems.push("ASSIST CLEAR without a USE OPTION banner".to_owned());
+            }
+            // The best column is either all "—" (never played this chart
+            // without assist options) or all filled.
+            let best = [
+                r.best_lamp.is_some(),
+                r.best_dj_level.is_some(),
+                r.best_score.is_some(),
+            ];
+            if best.iter().any(|&b| b) && !best.iter().all(|&b| b) {
+                problems.push("best lamp, DJ LEVEL and SCORE: some \"—\", some not".to_owned());
+            }
         }
         Label::Select(s) => {
             if (s.lamp == Lamp::NoPlay) != s.dj_level.is_none() {
@@ -288,6 +307,7 @@ mod tests {
             lamp: Lamp::FullCombo,
             best_lamp: None,
             dj_level: DjLevel::A,
+            best_dj_level: None,
             score: 193 * 2 + 138,
             best_score: None,
             miss_count: Some(0),

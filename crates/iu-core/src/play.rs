@@ -60,7 +60,7 @@ pub enum PlayStyle {
     Dp,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Side {
     #[serde(rename = "1p")]
     P1,
