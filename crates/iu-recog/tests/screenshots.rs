@@ -3,8 +3,9 @@
 
 use std::path::PathBuf;
 
+use iu_core::label::{Label, Screen};
 use iu_core::{Judge, PlayLayout};
-use iu_recog::PlayResources;
+use iu_recog::{PlayResources, ResultReading, ResultResources};
 
 fn play_resources(width: u32, height: u32) -> Result<PlayResources, String> {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -47,6 +48,62 @@ fn other_screens_are_not_play() {
             match res.detect(img) {
                 None => Ok(()),
                 Some(a) => Err(format!("detected as play screen ({})", a.layout)),
+            }
+        });
+    }
+}
+
+fn result_resources(width: u32, height: u32) -> Result<ResultResources, String> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../resources")
+        .join(format!("{width}x{height}"))
+        .join("result.json");
+    let json = std::fs::read_to_string(&path)
+        .map_err(|e| format!("no result resources for {width}x{height}: {e}"))?;
+    ResultResources::from_json(&json).map_err(|e| e.to_string())
+}
+
+/// Every labelled result screenshot: right side and every number exact.
+#[test]
+fn result_screens_read_correctly() {
+    iu_fixtures::run("result", |fixture, img| {
+        let label = fixture.label.as_ref().ok_or("no label")?;
+        let Label::Result(want) =
+            Label::from_file_json(Screen::Result, &label.to_string()).map_err(|e| e.to_string())?
+        else {
+            return Err("not a result label".into());
+        };
+        let res = result_resources(fixture.width, fixture.height)?;
+        let side = res.detect(img).ok_or("not detected as a result screen")?;
+        let got = res.read(img, side).map_err(|e| e.to_string())?;
+        let expected = ResultReading {
+            side: want.side,
+            judge: want.judge,
+            combo_break: want.combo_break,
+            fast: want.fast,
+            slow: want.slow,
+            score: want.score,
+            best_score: want.best_score,
+            miss_count: want.miss_count,
+            best_miss_count: want.best_miss_count,
+            notes: want.notes,
+        };
+        if got != expected {
+            return Err(format!("read {got:?}\n want {expected:?}"));
+        }
+        Ok(())
+    });
+}
+
+/// No other screen may be mistaken for a result screen.
+#[test]
+fn other_screens_are_not_result() {
+    for screen in ["play", "select", "option", "other"] {
+        iu_fixtures::run(screen, |fixture, img| {
+            let res = result_resources(fixture.width, fixture.height)?;
+            match res.detect(img) {
+                None => Ok(()),
+                Some(s) => Err(format!("detected as result screen ({:?})", s.side)),
             }
         });
     }

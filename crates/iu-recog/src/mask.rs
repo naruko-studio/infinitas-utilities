@@ -7,6 +7,31 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// and Spout frames differ by at most ±1, far from this threshold.
 pub const WHITE_THRESHOLD: u8 = 128;
 
+/// Which pixels count as "on" when binarizing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Ink {
+    /// Every channel above [`WHITE_THRESHOLD`].
+    White,
+    /// Green and blue above it (red ignored): cyan and white text, e.g. the
+    /// current score on the result screen.
+    Cyan,
+    /// Every channel above 200: white text next to dimmed text (the leading
+    /// zeros of the result screen's NOTES count) or a light background.
+    Bright,
+}
+
+impl Ink {
+    pub fn is_ink(self, [r, g, b]: [u8; 3]) -> bool {
+        let t = WHITE_THRESHOLD;
+        match self {
+            Ink::White => r > t && g > t && b > t,
+            Ink::Cyan => g > t && b > t,
+            Ink::Bright => r > 200 && g > 200 && b > 200,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mask {
     width: u32,
@@ -27,11 +52,23 @@ impl Mask {
     /// Binarizes `img` at (x, y) with this size. Pixels outside the image
     /// count as black.
     pub fn from_image(img: &RgbImage, x: u32, y: u32, width: u32, height: u32) -> Self {
+        Self::from_image_ink(img, x, y, width, height, Ink::White)
+    }
+
+    /// Like [`Mask::from_image`], with the given notion of "ink".
+    pub fn from_image_ink(
+        img: &RgbImage,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+        ink: Ink,
+    ) -> Self {
         let bits = (y..y + height)
             .flat_map(|py| (x..x + width).map(move |px| (px, py)))
             .map(|(px, py)| {
                 img.get_pixel_checked(px, py)
-                    .is_some_and(|p| p.0.iter().all(|&c| c > WHITE_THRESHOLD))
+                    .is_some_and(|p| ink.is_ink(p.0))
             })
             .collect();
         Self::new(width, height, bits)
