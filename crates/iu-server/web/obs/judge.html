@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>infinitas-utilities · judge</title>
+    <!--
+      OBS browser source: the current song's judge counts with a ratio bar
+      (the last song's after it ends, until the next one starts).
+      Query: ?scope=today shows today's totals instead.
+      Customize with OBS "Custom CSS" (see the variables below).
+    -->
+    <style>
+      :root {
+        --iu-font: "Segoe UI", "Yu Gothic UI", "Microsoft JhengHei UI", sans-serif;
+        --iu-color: #ffffff;
+        --iu-size: 28px;
+        --iu-shadow: 0 0 6px #000, 0 0 2px #000;
+        --iu-bar-height: 10px;
+        --iu-pg: #4dd0e1;
+        --iu-gr: #fff176;
+        --iu-gd: #ffb300;
+        --iu-bd: #ff9800;
+        --iu-pr: #ef5350;
+        --iu-cb: #ff8a80;
+      }
+      html,
+      body {
+        margin: 0;
+        background: transparent;
+        overflow: hidden;
+      }
+      body {
+        font-family: var(--iu-font);
+        font-size: var(--iu-size);
+        color: var(--iu-color);
+        text-shadow: var(--iu-shadow);
+        font-variant-numeric: tabular-nums;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      th {
+        text-align: left;
+        padding-right: 0.8em;
+      }
+      td {
+        text-align: right;
+        min-width: 3.5em;
+      }
+      th.pg { color: var(--iu-pg); }
+      th.gr { color: var(--iu-gr); }
+      th.gd { color: var(--iu-gd); }
+      th.bd { color: var(--iu-bd); }
+      th.pr { color: var(--iu-pr); }
+      th.cb { color: var(--iu-cb); }
+      .bar {
+        display: flex;
+        height: var(--iu-bar-height);
+        margin-top: 0.3em;
+        box-shadow: var(--iu-shadow);
+      }
+      .bar > div { transition: flex-grow 0.2s; }
+      .bar .pg { background: var(--iu-pg); }
+      .bar .gr { background: var(--iu-gr); }
+      .bar .gd { background: var(--iu-gd); }
+      .bar .bd { background: var(--iu-bd); }
+      .bar .pr { background: var(--iu-pr); }
+    </style>
+  </head>
+  <body>
+    <table><tbody id="rows"></tbody></table>
+    <div class="bar" id="bar"></div>
+    <script src="/assets/iu.js"></script>
+    <script>
+      const today = new URLSearchParams(location.search).get("scope") === "today";
+      const rows = document.getElementById("rows");
+      const bar = document.getElementById("bar");
+      const cells = {};
+      const segs = {};
+      for (const k of IU.JUDGES) {
+        const tr = rows.insertRow();
+        tr.innerHTML = `<th class="${k}">${k.toUpperCase()}</th><td>0</td>`;
+        cells[k] = tr.cells[1];
+        if (k !== "cb") {
+          const d = document.createElement("div");
+          d.className = k;
+          bar.append(d);
+          segs[k] = d;
+        }
+      }
+      const zero = { pg: 0, gr: 0, gd: 0, bd: 0, pr: 0, cb: 0 };
+      IU.connect({
+        status(s) {
+          const j = (today ? s.today : IU.shownJudge(s)) ?? zero;
+          for (const k of IU.JUDGES) cells[k].textContent = IU.fmt(j[k]);
+          for (const k in segs) segs[k].style.flexGrow = j[k];
+        },
+      });
+    </script>
+  </body>
+</html>

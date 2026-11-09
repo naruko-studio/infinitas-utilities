@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>infinitas-utilities</title>
+    <style>
+      :root {
+        --bg: #17181c;
+        --card: #1e2027;
+        --line: #2b2e37;
+        --text: #e8eaf0;
+        --muted: #9aa0ad;
+        --pg: #4dd0e1;
+        --gr: #fff176;
+        --gd: #ffb300;
+        --bd: #ff9800;
+        --pr: #ef5350;
+        --cb: #ff8a80;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 12px 16px 32px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, "Segoe UI", "Hiragino Sans", "Noto Sans CJK TC", sans-serif;
+        font-variant-numeric: tabular-nums;
+      }
+      h1 { font-size: 1.05rem; margin: 0 0 10px; color: var(--muted); font-weight: 600; }
+      h2 { font-size: 0.9rem; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
+      .offline {
+        display: none;
+        margin-bottom: 10px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: #3a2326;
+        border-left: 4px solid var(--pr);
+      }
+      body.disconnected .offline { display: block; }
+      .card {
+        background: var(--card);
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+      }
+      .big { font-size: 2.2rem; font-weight: 700; line-height: 1.1; }
+      .muted { color: var(--muted); font-size: 0.9rem; }
+      .judges {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 4px;
+        margin-top: 8px;
+        text-align: center;
+      }
+      .judges b { display: block; font-size: 0.75rem; }
+      .pg { color: var(--pg); } .gr { color: var(--gr); } .gd { color: var(--gd); }
+      .bd { color: var(--bd); } .pr { color: var(--pr); } .cb { color: var(--cb); }
+      table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+      td, th { padding: 6px 4px; border-top: 1px solid var(--line); text-align: right; }
+      th { color: var(--muted); font-weight: 600; font-size: 0.75rem; border-top: none; }
+      td:first-child, th:first-child { text-align: left; }
+      .empty { color: var(--muted); padding: 6px 0; }
+    </style>
+  </head>
+  <body>
+    <h1>infinitas-utilities</h1>
+    <div class="offline" id="offline"></div>
+
+    <section class="card">
+      <h2 id="t-today"></h2>
+      <div class="big" id="today-notes">0</div>
+      <div class="muted"><span id="t-keys"></span> · <span id="t-plays"></span> <span id="today-plays">0</span></div>
+      <div class="judges" id="today-judges"></div>
+    </section>
+
+    <section class="card">
+      <h2 id="t-current"></h2>
+      <div class="big" id="cur-notes">–</div>
+      <div class="muted" id="cur-state"></div>
+      <div class="judges" id="cur-judges"></div>
+    </section>
+
+    <section class="card">
+      <h2 id="t-list"></h2>
+      <table>
+        <thead><tr><th></th><th class="pg">PG</th><th class="gr">GR</th><th class="gd">GD</th><th class="bd">BD</th><th class="pr">PR</th><th></th></tr></thead>
+        <tbody id="plays"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2 id="t-days"></h2>
+      <table><tbody id="days"></tbody></table>
+    </section>
+
+    <script src="/assets/iu.js"></script>
+    <script>
+      const t = IU.strings();
+      const $ = (id) => document.getElementById(id);
+      $("t-today").textContent = t.today;
+      $("t-keys").textContent = t.keystrokes;
+      $("t-plays").textContent = t.plays;
+      $("t-current").textContent = t.current;
+      $("t-list").textContent = t.todayPlays;
+      $("t-days").textContent = t.recentDays;
+      $("offline").textContent = t.offline;
+
+      function judgeGrid(el, j) {
+        el.innerHTML = IU.JUDGES.map(
+          (k) => `<div><b class="${k}">${k.toUpperCase()}</b>${j ? IU.fmt(j[k]) : "–"}</div>`,
+        ).join("");
+      }
+
+      // The lists come from the API; refresh them when a play is recorded
+      // and when the day rolls over (the play count changes either way).
+      let shownPlays = null;
+      function showStatus(s) {
+        if (shownPlays !== null && s.playsToday !== shownPlays) loadLists();
+        shownPlays = s.playsToday;
+        $("today-notes").textContent = IU.fmt(s.todayNotes);
+        $("today-plays").textContent = IU.fmt(s.playsToday);
+        judgeGrid($("today-judges"), s.today);
+        const j = IU.shownJudge(s);
+        $("cur-notes").textContent = j ? IU.fmt(IU.notes(j)) : "–";
+        $("cur-state").textContent = s.current
+          ? `${t.playing} (${s.layout})`
+          : s.lastPlay
+            ? `${t.finished} (${s.lastPlay.layout})`
+            : t.none;
+        judgeGrid($("cur-judges"), j);
+      }
+
+      const time = (iso) =>
+        new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      async function loadLists() {
+        try {
+          const today = await IU.getJSON("/api/today");
+          $("plays").innerHTML = today.plays.length
+            ? today.plays
+                .slice()
+                .reverse()
+                .map(
+                  (p) =>
+                    `<tr><td>${time(p.startedAt)}</td>` +
+                    ["pg", "gr", "gd", "bd", "pr"].map((k) => `<td>${p.judge[k]}</td>`).join("") +
+                    `<td><b>${IU.fmt(IU.notes(p.judge))}</b></td></tr>`,
+                )
+                .join("")
+            : `<tr><td class="empty" colspan="7">${t.none}</td></tr>`;
+          const days = await IU.getJSON("/api/days?limit=14");
+          $("days").innerHTML = days
+            .map(
+              (d) =>
+                `<tr><td>${d.gameDay}</td><td>${IU.fmt(d.plays)} ${t.plays}</td>` +
+                `<td><b>${IU.fmt(IU.notes(d.judge))}</b> ${t.keystrokes}</td></tr>`,
+            )
+            .join("");
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      IU.connect({
+        open() {
+          document.body.classList.remove("disconnected");
+          loadLists();
+        },
+        close() {
+          document.body.classList.add("disconnected");
+        },
+        status: showStatus,
+        playFinished: loadLists,
+      });
+    </script>
+  </body>
+</html>
