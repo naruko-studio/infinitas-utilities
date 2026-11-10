@@ -34,6 +34,9 @@ export interface Status {
   layout: string | null;
   current: Judge | null;
   lastPlay: { layout: string; judge: Judge } | null;
+  lastResult: ResultRecord | null;
+  currentSong: { id: string; title: string; artist: string } | null;
+  ocrAvailable: boolean | null;
   today: Judge;
   todayNotes: number;
   playsToday: number;
@@ -169,3 +172,68 @@ export const annotatorSave = (path: string, label: Label) =>
   invoke<string>("annotator_save", { path, label });
 export const annotatorDiscard = (path: string) => invoke<void>("annotator_discard", { path });
 export const songList = () => invoke<{ songs: Song[] }>("song_list");
+
+/** Mirrors `iu_core::result::ResultRecord`. */
+export interface ResultRecord {
+  id: number | null;
+  title: string | null;
+  gameDay: string;
+  recordedAt: string;
+  side: "1p" | "2p";
+  chart: Chart | null;
+  level: number | null;
+  songId: string | null;
+  notes: number;
+  lamp: Lamp | null;
+  bestLamp: Lamp | null;
+  djLevel: DjLevel | null;
+  bestDjLevel: DjLevel | null;
+  score: number;
+  bestScore: number | null;
+  missCount: number | null;
+  bestMissCount: number | null;
+  judge: { pg: number; gr: number; gd: number; bd: number; pr: number };
+  comboBreak: number;
+  fast: number;
+  slow: number;
+  dead: boolean;
+  useOption: string | null;
+}
+
+export interface Candidate {
+  id: string;
+  title: string;
+  artist: string;
+}
+
+/** A result whose song is not known yet. */
+export interface UnnamedResult {
+  result: ResultRecord;
+  candidates: Candidate[];
+}
+
+export const unnamedResults = () => invoke<UnnamedResult[]>("unnamed_results");
+export const nameResult = (id: number, songId: string) =>
+  invoke<void>("name_result", { id, songId });
+
+/** A result was recorded, or a stored one changed (its song was named). */
+export const onResultChange = async (handler: () => void): Promise<UnlistenFn> => {
+  const a = await listen("engine://result", handler);
+  const b = await listen("engine://result-updated", handler);
+  return () => {
+    a();
+    b();
+  };
+};
+
+/** The game's own lamp names. */
+export const LAMP_NAMES: Record<Lamp, string> = {
+  "no-play": "NO PLAY",
+  failed: "FAILED",
+  "assist-clear": "ASSIST CLEAR",
+  "easy-clear": "EASY CLEAR",
+  clear: "CLEAR",
+  "hard-clear": "HARD CLEAR",
+  "ex-hard-clear": "EX HARD CLEAR",
+  "full-combo": "FULL COMBO",
+};

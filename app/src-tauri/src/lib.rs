@@ -2,6 +2,8 @@ mod annotator;
 mod commands;
 mod engine;
 mod logging;
+mod ocr;
+mod songs;
 mod web;
 
 use std::path::PathBuf;
@@ -19,6 +21,8 @@ use tokio::sync::broadcast::error::RecvError;
 /// Tauri events the UI listens to (payloads as in [`iu_core::event`]).
 pub const STATUS_EVENT: &str = "engine://status";
 pub const PLAY_EVENT: &str = "engine://play";
+pub const RESULT_EVENT: &str = "engine://result";
+pub const RESULT_UPDATED_EVENT: &str = "engine://result-updated";
 
 /// App-wide state shared with the commands.
 pub struct AppState {
@@ -28,6 +32,8 @@ pub struct AppState {
     pub engine: Mutex<Sender<engine::Command>>,
     pub web: web::Web,
     pub annotator: Option<annotator::Annotator>,
+    /// `data.db`, for read-only queries from commands.
+    pub db_path: PathBuf,
     /// Keeps the background log writer alive; dropping it flushes the log.
     _log_guard: Option<tracing_appender::non_blocking::WorkerGuard>,
 }
@@ -62,19 +68,23 @@ pub fn run() {
             let status: SharedStatus = Arc::new(Mutex::new(Status::default()));
             forward_to_ui(app.handle().clone(), &bus);
 
+            let engine = engine::spawn(
+                bus.clone(),
+                config.capture.clone(),
+                config.day_start_jst,
+                data_dir.clone(),
+                status.clone(),
+            );
             let web = web::Web::new(iu_server::Context {
-                bus: bus.clone(),
+                bus,
                 status: status.clone(),
                 db_path: data_dir.join(DATABASE_FILE_NAME),
                 day_start_jst: config.day_start_jst,
+                songs: songs::song_list(),
+                // Naming from the phone is a development aid: debug builds
+                // (`pnpm tauri dev`) only.
+                name_result: cfg!(debug_assertions).then(|| engine::name_result_fn(engine.clone())),
             });
-            let engine = engine::spawn(
-                bus,
-                config.capture.clone(),
-                config.day_start_jst,
-                data_dir,
-                status.clone(),
-            );
             let server_config = config.server.clone();
             let config_capture_game_dir = config.capture.game_screenshot_dir.clone();
 
@@ -85,6 +95,7 @@ pub fn run() {
                 engine: Mutex::new(engine),
                 web,
                 annotator: annotator::Annotator::new(config_capture_game_dir),
+                db_path: data_dir.join(DATABASE_FILE_NAME),
                 _log_guard: log_guard,
             });
             let handle = app.handle().clone();
@@ -108,6 +119,8 @@ pub fn run() {
             commands::annotator_save,
             commands::annotator_discard,
             commands::song_list,
+            commands::unnamed_results,
+            commands::name_result,
         ])
         .run(tauri::generate_context!())
         .expect("error while running infinitas-utilities");
@@ -123,6 +136,8 @@ fn forward_to_ui(app: AppHandle, bus: &Bus) {
                 let result = match events.blocking_recv() {
                     Ok(Event::Status(s)) => app.emit(STATUS_EVENT, s),
                     Ok(Event::PlayFinished(p)) => app.emit(PLAY_EVENT, p),
+                    Ok(Event::ResultRecorded(r)) => app.emit(RESULT_EVENT, r),
+                    Ok(Event::ResultUpdated(r)) => app.emit(RESULT_UPDATED_EVENT, r),
                     Err(RecvError::Lagged(_)) => continue,
                     Err(RecvError::Closed) => return,
                 };

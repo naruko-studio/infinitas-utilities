@@ -9,11 +9,14 @@
     setDevCapture,
     setLanAccess,
     setLanguage,
+    LAMP_NAMES,
     type Judge,
+    type ResultRecord,
     type ServerInfo,
     type Status,
   } from "./lib/api";
   import Annotator from "./lib/Annotator.svelte";
+  import UnnamedResults from "./lib/UnnamedResults.svelte";
   import {
     applyLanguage,
     LOCALE_NAMES,
@@ -38,6 +41,7 @@
   const OBS_PAGES = [
     { path: "/obs/counter.html", size: "400 × 100" },
     { path: "/obs/judge.html", size: "300 × 270" },
+    { path: "/obs/song.html", size: "600 × 100" },
   ] as const;
 
   $effect(() => {
@@ -132,6 +136,9 @@
   {:else}
   {#if status}
     <p class="connection {status.connection}">{connectionText}</p>
+    {#if status.ocrAvailable === false}
+      <p class="hint">{t("ocr.missing")}</p>
+    {/if}
 
     <section class="cards">
       <div class="card">
@@ -145,6 +152,9 @@
 
       <div class="card">
         <h2>{t("current.title")}</h2>
+        {#if status.currentSong}
+          <div class="song" title={status.currentSong.artist}>{status.currentSong.title}</div>
+        {/if}
         {#if status.current && status.layout}
           <div class="big">{notes(status.current).toLocaleString()}</div>
           <div class="muted">{t("play.onScreen", { layout: status.layout })}</div>
@@ -152,6 +162,9 @@
         {:else if status.lastPlay}
           <div class="big">{notes(status.lastPlay.judge).toLocaleString()}</div>
           <div class="muted">{t("play.finished", { layout: status.lastPlay.layout })}</div>
+          {#if status.lastResult}
+            {@render resultLine(status.lastResult)}
+          {/if}
           {@render judgeTable(status.lastPlay.judge)}
         {:else}
           <div class="muted">{t("play.notOnScreen")}</div>
@@ -162,6 +175,8 @@
       </div>
     </section>
   {/if}
+
+  <UnnamedResults />
 
   {#if server}
     <section class="card web">
@@ -231,6 +246,18 @@
   {/if}
 </main>
 
+
+{#snippet resultLine(r: ResultRecord)}
+  <div class="result">
+    {#if r.title}<span class="title">{r.title}</span>{/if}
+    {#if r.lamp}<span class="lamp {r.lamp}">{LAMP_NAMES[r.lamp]}</span>{/if}
+    {#if r.chart}<span>{r.chart}{r.level ?? ""}</span>{/if}
+    <span>SCORE {r.score}</span>
+    {#if r.djLevel}<span>{r.djLevel}</span>{/if}
+    {#if r.missCount !== null}<span>MISS {r.missCount}</span>{/if}
+    {#if r.dead}<span class="lamp failed">DEAD</span>{/if}
+  </div>
+{/snippet}
 {#snippet judgeTable(j: Judge)}
   <table>
     <tbody>
@@ -363,6 +390,43 @@
     padding: 2px 6px;
     border-radius: 4px;
     user-select: all;
+  }
+  .result {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+  .song {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 2px;
+  }
+  .result .title {
+    flex-basis: 100%;
+    font-size: 1.05rem;
+  }
+  .lamp.failed {
+    color: #ef5350;
+  }
+  .lamp.full-combo {
+    color: #4dd0e1;
+  }
+  .lamp.ex-hard-clear {
+    color: #ffd54f;
+  }
+  .lamp.hard-clear {
+    color: #ff8a80;
+  }
+  .lamp.easy-clear {
+    color: #aed581;
+  }
+  .lamp.clear {
+    color: #81d4fa;
+  }
+  .lamp.assist-clear {
+    color: #ce93d8;
   }
   .tabs {
     display: flex;

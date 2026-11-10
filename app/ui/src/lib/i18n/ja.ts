@@ -27,6 +27,14 @@ export const ja: Dictionary = {
   "today.notes": "打鍵数",
   "today.plays": "プレー回数",
   "current.title": "この曲",
+  "unnamed.title": "この曲はどれ？",
+  "unnamed.hint":
+    "これらのリザルトは曲名を認識できませんでした。一度選ぶと、次からは自動で認識します。",
+  "unnamed.search": "曲リストを検索",
+  "unnamed.noCandidates": "この譜面とノーツ数の曲がリストにありません。曲名で検索：",
+  "unnamed.failed": "保存できませんでした：{error}",
+  "ocr.missing":
+    "曲名を読み取れません：Windows に日本語の文字認識がありません。設定 → 時刻と言語 → 言語と地域 で日本語を追加し、アプリを再起動してください。",
   "capture.button": "現在の画面を保存",
   "capture.saved": "保存しました：{path}",
   "capture.failed": "保存できませんでした：{error}",

@@ -14,6 +14,7 @@ chrono = { version = "0.4.45", default-features = false, features = ["clock", "s
 dirs = "7.0.0"
 iu-capture = { path = "../../crates/iu-capture" }
 iu-core = { path = "../../crates/iu-core" }
+iu-ocr = { path = "../../crates/iu-ocr" }
 iu-recog = { path = "../../crates/iu-recog" }
 iu-server = { path = "../../crates/iu-server" }
 iu-db = { path = "../../crates/iu-db" }

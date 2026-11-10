@@ -6,6 +6,7 @@ use iu_core::label::Label;
 use iu_core::songs::SongList;
 use iu_core::status::Status;
 use iu_core::{Config, Language};
+use iu_db::{Store, UnnamedView};
 use tauri::State;
 
 use crate::AppState;
@@ -137,6 +138,25 @@ pub async fn annotator_discard(state: State<'_, AppState>, path: String) -> Resu
 
 /// The bundled song list, for picking the song of a result/select label.
 #[tauri::command]
-pub fn song_list() -> Result<SongList, String> {
-    SongList::from_json(include_str!("../../../resources/songs.json")).map_err(|e| e.to_string())
+pub fn song_list() -> SongList {
+    crate::songs::song_list().clone()
+}
+
+/// Results waiting for the user to name their song, oldest first.
+#[tauri::command]
+pub async fn unnamed_results(state: State<'_, AppState>) -> Result<Vec<UnnamedView>, String> {
+    Store::open(&state.db_path)
+        .and_then(|s| s.unnamed_views(crate::songs::song_list()))
+        .map_err(|e| e.to_string())
+}
+
+/// Names the song of a stored result (the engine learns its title).
+#[tauri::command]
+pub async fn name_result(
+    state: State<'_, AppState>,
+    id: i64,
+    song_id: String,
+) -> Result<(), String> {
+    let engine = state.engine.lock().expect("engine lock poisoned").clone();
+    crate::engine::name_result(&engine, id, song_id)
 }

@@ -26,6 +26,13 @@ export const zhTW: Dictionary = {
   "today.notes": "打鍵數",
   "today.plays": "遊玩次數",
   "current.title": "這首歌",
+  "unnamed.title": "這是哪首歌？",
+  "unnamed.hint": "這些結算認不出曲名。選一次之後，下次就會自動認出來。",
+  "unnamed.search": "搜尋曲目清單",
+  "unnamed.noCandidates": "清單裡沒有這個譜面和 NOTES 數的歌，請用曲名搜尋：",
+  "unnamed.failed": "無法儲存：{error}",
+  "ocr.missing":
+    "無法讀取曲名：Windows 沒有日文文字辨識。請到「設定 → 時間與語言 → 語言與地區」加入日文（不用設成顯示語言），再重新啟動本程式。",
   "capture.button": "儲存目前畫面",
   "capture.saved": "已儲存：{path}",
   "capture.failed": "無法儲存：{error}",

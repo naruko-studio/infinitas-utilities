@@ -27,6 +27,14 @@ export const en = {
   "today.notes": "Keystrokes",
   "today.plays": "Plays",
   "current.title": "Current play",
+  "unnamed.title": "Which song was this?",
+  "unnamed.hint":
+    "The title of these results was not recognised. Pick the song once and it will be recognised from now on.",
+  "unnamed.search": "Search the song list",
+  "unnamed.noCandidates": "No song in the list has this chart and note count. Search by title:",
+  "unnamed.failed": "Could not save: {error}",
+  "ocr.missing":
+    "Song titles cannot be read: Windows has no Japanese text recognition. Add Japanese in Settings → Time & language → Language & region (no need to make it the display language), then restart the app.",
   "capture.button": "Save current frame",
   "capture.saved": "Saved: {path}",
   "capture.failed": "Could not save: {error}",
