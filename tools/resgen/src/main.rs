@@ -12,6 +12,7 @@
 mod play;
 mod result;
 mod result_symbols;
+mod titles;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -28,14 +29,16 @@ fn main() -> anyhow::Result<()> {
     match args.first().map(String::as_str) {
         Some("play") => play::run(&root, &out_dir),
         Some("result") => result::run(&root, &out_dir),
+        Some("titles") => titles::run(&root, &out_dir),
         Some("labels") => check_labels(&root),
         Some("all") => {
             check_labels(&root)?;
             play::run(&root, &out_dir)?;
             result::run(&root, &out_dir)?;
+            titles::run(&root, &out_dir)?;
             run_tests(&repo)
         }
-        _ => bail!("usage: resgen all | play | result | labels"),
+        _ => bail!("usage: resgen all | play | result | titles | labels"),
     }
 }
 
