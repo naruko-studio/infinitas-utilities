@@ -1,31 +1,35 @@
 //! The web side: OBS browser-source pages, the phone page, a WebSocket feed
-//! of bus events and a small read-only JSON API, all on one port.
+//! of bus events and a small JSON API, all on one port.
 //!
 //! - `GET /` phone page; `GET /obs/*.html` OBS pages; `GET /assets/*`
 //! - `GET /ws` WebSocket: the current status right away, then every bus
 //!   event as JSON (see [`iu_core::event`])
-//! - `GET /api/status`, `GET /api/today`, `GET /api/days?limit=N`
+//! - `GET /api/status`, `GET /api/today`, `GET /api/days?limit=N`,
+//!   `GET /api/unnamed` (results whose song is not known), `GET /api/songs?q=`
+//! - `POST /api/results/{id}/song` `{"songId"}`: name a result's song
 //!
-//! Nothing here writes: the API and pages only read. By default the server
+//! Naming a result is the only write. By default the server
 //! listens on 127.0.0.1 only; [`ServerConfig::lan_access`] opens it to the
 //! LAN for phones.
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use axum::Router;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use chrono::{NaiveTime, Utc};
 use iu_core::config::ServerConfig;
 use iu_core::day::game_day;
 use iu_core::event::{Bus, Event};
 use iu_core::play::{DaySummary, DayTotal, PlayRecord};
+use iu_core::songs::SongList;
 use iu_core::status::{SharedStatus, Status};
-use iu_db::Store;
+use iu_db::{Candidate, Store, search_songs};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::oneshot;
@@ -39,7 +43,15 @@ pub struct Context {
     /// free of a shared connection).
     pub db_path: PathBuf,
     pub day_start_jst: NaiveTime,
+    /// The bundled song list (candidates and search for naming results).
+    pub songs: &'static SongList,
+    /// Names a stored result's song (the engine records it and learns the
+    /// title); blocking. `None`: naming from the web is not available.
+    pub name_result: Option<NameResult>,
 }
+
+/// `(result id, song id)` → done or an error message.
+pub type NameResult = Arc<dyn Fn(i64, String) -> Result<(), String> + Send + Sync>;
 
 /// A running server. Dropping it (or calling [`Server::stop`]) shuts it
 /// down.
@@ -117,6 +129,9 @@ pub fn router(ctx: Context) -> Router {
         .route("/api/status", get(api_status))
         .route("/api/today", get(api_today))
         .route("/api/days", get(api_days))
+        .route("/api/unnamed", get(api_unnamed))
+        .route("/api/songs", get(api_songs))
+        .route("/api/results/{id}/song", post(api_name_result))
         .with_state(ctx)
 }
 
@@ -134,6 +149,11 @@ const ASSETS: &[(&str, &str, &str)] = &[
         "judge.html",
         "text/html",
         include_str!("../web/obs/judge.html"),
+    ),
+    (
+        "song.html",
+        "text/html",
+        include_str!("../web/obs/song.html"),
     ),
     ("iu.js", "text/javascript", include_str!("../web/iu.js")),
 ];
@@ -154,7 +174,7 @@ async fn asset(name: &str) -> Response {
 
 async fn obs_page(axum::extract::Path(page): axum::extract::Path<String>) -> Response {
     match page.as_str() {
-        "counter.html" | "judge.html" => asset(&page).await,
+        "counter.html" | "judge.html" | "song.html" => asset(&page).await,
         _ => StatusCode::NOT_FOUND.into_response(),
     }
 }
@@ -177,7 +197,7 @@ async fn ws(State(ctx): State<Context>, upgrade: WebSocketUpgrade) -> Response {
 async fn feed(mut socket: WebSocket, ctx: Context) {
     // Subscribe before taking the snapshot so nothing falls in between.
     let mut events = ctx.bus.subscribe();
-    let snapshot = Event::Status(current_status(&ctx));
+    let snapshot = Event::Status(Box::new(current_status(&ctx)));
     if send(&mut socket, &snapshot).await.is_err() {
         return;
     }
@@ -223,6 +243,8 @@ pub struct Today {
     pub game_day: chrono::NaiveDate,
     pub summary: DaySummary,
     pub plays: Vec<PlayRecord>,
+    /// Result screens recorded today, oldest first.
+    pub results: Vec<iu_core::result::ResultRecord>,
 }
 
 async fn api_today(State(ctx): State<Context>) -> Result<axum::Json<Today>, ApiError> {
@@ -232,6 +254,7 @@ async fn api_today(State(ctx): State<Context>) -> Result<axum::Json<Today>, ApiE
             game_day: day,
             summary: s.day_summary(day)?,
             plays: s.plays_on(day)?,
+            results: s.results_on(day)?,
         })
     })
     .await?;
@@ -250,6 +273,56 @@ async fn api_days(
     let limit = q.limit.unwrap_or(14).clamp(1, 366);
     let days = with_store(ctx, move |s| s.recent_days(limit)).await?;
     Ok(axum::Json(days))
+}
+
+/// Results whose song was not recognized, with their candidate songs.
+/// 404 when naming is not available, so the phone page hides the section.
+async fn api_unnamed(State(ctx): State<Context>) -> Response {
+    if ctx.name_result.is_none() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let songs = ctx.songs;
+    match with_store(ctx, move |s| s.unnamed_views(songs)).await {
+        Ok(views) => axum::Json(views).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct SongsQuery {
+    q: String,
+}
+
+/// Title search, for naming a result without candidates.
+async fn api_songs(
+    State(ctx): State<Context>,
+    Query(q): Query<SongsQuery>,
+) -> axum::Json<Vec<Candidate>> {
+    axum::Json(search_songs(ctx.songs, &q.q, 12))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NameBody {
+    song_id: String,
+}
+
+/// The one write: names a result's song. The body must be JSON, so a page
+/// on another site cannot send it from the user's browser (a JSON POST
+/// needs a CORS preflight, which this server never allows).
+async fn api_name_result(
+    State(ctx): State<Context>,
+    axum::extract::Path(id): axum::extract::Path<i64>,
+    axum::Json(body): axum::Json<NameBody>,
+) -> Response {
+    let Some(name) = ctx.name_result.clone() else {
+        return (StatusCode::SERVICE_UNAVAILABLE, "naming is not available").into_response();
+    };
+    match tokio::task::spawn_blocking(move || name(id, body.song_id)).await {
+        Ok(Ok(())) => StatusCode::NO_CONTENT.into_response(),
+        Ok(Err(e)) => (StatusCode::UNPROCESSABLE_ENTITY, e).into_response(),
+        Err(e) => ApiError(e.to_string()).into_response(),
+    }
 }
 
 /// Runs a query on a fresh connection off the async threads.

@@ -12,9 +12,17 @@ const IU = (() => {
 
   function connect(handlers) {
     let delay = 500;
+    let connectedBefore = false;
     const open = () => {
       const ws = new WebSocket(`ws://${location.host}/ws`);
       ws.onopen = () => {
+        // Back after a disconnect: the app may have restarted with newer
+        // pages, so load them rather than keep running the old ones.
+        if (connectedBefore) {
+          location.reload();
+          return;
+        }
+        connectedBefore = true;
         delay = 500;
         handlers.open?.();
       };
@@ -62,6 +70,11 @@ const IU = (() => {
       none: "No play yet",
       todayPlays: "Today's plays",
       recentDays: "Recent days",
+      todayResults: "Today's results",
+      naming: "Which song was this?",
+      namingHint: "The title of these results was not recognised. Pick the song once and it will be recognised from now on.",
+      noCandidates: "No song in the list has this chart and note count. Search by title:",
+      search: "Search the song list",
       offline: "Disconnected — reconnecting…",
     },
     "zh-TW": {
@@ -74,6 +87,11 @@ const IU = (() => {
       none: "還沒有遊玩紀錄",
       todayPlays: "今天的紀錄",
       recentDays: "最近幾天",
+      todayResults: "今天的結算",
+      naming: "這是哪首歌？",
+      namingHint: "這些結算認不出曲名。選一次之後，下次就會自動認出來。",
+      noCandidates: "清單裡沒有這個譜面和 NOTES 數的歌，請用曲名搜尋：",
+      search: "搜尋曲目清單",
       offline: "連線中斷，重新連線中…",
     },
     ja: {
@@ -86,6 +104,11 @@ const IU = (() => {
       none: "まだプレー記録がありません",
       todayPlays: "今日の記録",
       recentDays: "最近の記録",
+      todayResults: "今日のリザルト",
+      naming: "この曲はどれ？",
+      namingHint: "これらのリザルトは曲名を認識できませんでした。一度選ぶと、次からは自動で認識します。",
+      noCandidates: "この譜面とノーツ数の曲がリストにありません。曲名で検索：",
+      search: "曲リストを検索",
       offline: "切断されました。再接続中…",
     },
   };

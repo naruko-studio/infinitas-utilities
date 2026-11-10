@@ -21,6 +21,8 @@ fn ctx(dir: &tempfile::TempDir) -> Context {
         })),
         db_path: dir.path().join("data.db"),
         day_start_jst: iu_core::day::default_day_start(),
+        songs: songs(),
+        name_result: None,
     }
 }
 
@@ -60,7 +62,13 @@ async fn get(app: Router, uri: &str) -> (StatusCode, String, String) {
 async fn pages_are_served_and_unknown_ones_are_not() {
     let dir = tempfile::tempdir().unwrap();
     let app = router(ctx(&dir));
-    for uri in ["/", "/obs/counter.html", "/obs/judge.html", "/assets/iu.js"] {
+    for uri in [
+        "/",
+        "/obs/counter.html",
+        "/obs/judge.html",
+        "/obs/song.html",
+        "/assets/iu.js",
+    ] {
         let (status, ctype, body) = get(app.clone(), uri).await;
         assert_eq!(status, StatusCode::OK, "{uri}");
         assert!(ctype.contains("charset=utf-8"), "{uri}: {ctype}");
@@ -97,6 +105,7 @@ async fn api_reports_status_today_and_days() {
     assert_eq!(today.summary.judge.pg, 30);
     assert_eq!(today.summary.plays, 2);
     assert_eq!(today.plays.len(), 2);
+    assert!(today.results.is_empty());
 
     let (_, _, body) = get(app.clone(), "/api/days?limit=3").await;
     let days: Vec<DayTotal> = serde_json::from_str(&body).unwrap();
@@ -136,4 +145,57 @@ async fn websocket_sends_a_snapshot_then_bus_events() {
     assert_eq!(next(socket.next().await), Event::PlayFinished(record));
 
     server.stop();
+}
+
+fn songs() -> &'static SongList {
+    static SONGS: std::sync::OnceLock<SongList> = std::sync::OnceLock::new();
+    SONGS
+        .get_or_init(|| SongList::from_json(include_str!("../../../resources/songs.json")).unwrap())
+}
+
+#[tokio::test]
+async fn naming_api_lists_searches_and_forwards() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut c = ctx(&dir);
+    // Naming not wired (release builds): the list is not offered.
+    let (status, _, _) = get(router(c.clone()), "/api/unnamed").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let (_, _, body) = get(router(c.clone()), "/api/songs?q=gold%20rush").await;
+    let found: Vec<Candidate> = serde_json::from_str(&body).unwrap();
+    assert!(found.iter().any(|s| s.title == "GOLD RUSH"));
+
+    let post = |app: Router, body: &str, ctype: &str| {
+        let req = Request::post("/api/results/7/song")
+            .header(header::CONTENT_TYPE, ctype)
+            .body(Body::from(body.to_owned()))
+            .unwrap();
+        async move { app.oneshot(req).await.unwrap().status() }
+    };
+    // Not wired: unavailable.
+    let json = r#"{"songId":"abc"}"#;
+    assert_eq!(
+        post(router(c.clone()), json, "application/json").await,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    let seen = Arc::new(Mutex::new(None));
+    let s = seen.clone();
+    c.name_result = Some(Arc::new(move |id, song| {
+        *s.lock().unwrap() = Some((id, song));
+        Ok(())
+    }));
+    // A form post (what another site could send without a preflight) is refused.
+    assert_eq!(
+        post(router(c.clone()), json, "text/plain").await,
+        StatusCode::UNSUPPORTED_MEDIA_TYPE
+    );
+    assert_eq!(seen.lock().unwrap().take(), None);
+    assert_eq!(
+        post(router(c.clone()), json, "application/json").await,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(seen.lock().unwrap().take(), Some((7, "abc".to_owned())));
+    let (status, _, body) = get(router(c.clone()), "/api/unnamed").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "[]");
 }

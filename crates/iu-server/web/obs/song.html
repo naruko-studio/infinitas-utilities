@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>infinitas-utilities · song</title>
+    <!--
+      OBS browser source: the song being played (title and artist), read
+      from the play screen. Empty until the song is recognised.
+      Recommended source size: 600 x 100 (at the default --iu-size: 36px;
+      scale both with --iu-size).
+      Customize with OBS "Custom CSS", e.g.
+        :root { --iu-size: 48px; --iu-color: #ff0; --iu-align: left; }
+      Query: ?artist=0 hides the artist line.
+    -->
+    <style>
+      :root {
+        --iu-font: "Segoe UI", "Yu Gothic UI", "Microsoft JhengHei UI", sans-serif;
+        --iu-color: #ffffff;
+        --iu-sub-color: #c8cdd8;
+        --iu-size: 36px;
+        --iu-shadow: 0 0 6px #000, 0 0 2px #000;
+        --iu-align: center;
+      }
+      html,
+      body {
+        margin: 0;
+        background: transparent;
+        overflow: hidden;
+      }
+      body {
+        font-family: var(--iu-font);
+        color: var(--iu-color);
+        text-align: var(--iu-align);
+        text-shadow: var(--iu-shadow);
+      }
+      #title {
+        font-size: var(--iu-size);
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #artist {
+        font-size: calc(var(--iu-size) * 0.55);
+        color: var(--iu-sub-color);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="title"></div>
+    <div id="artist"></div>
+    <script src="/assets/iu.js"></script>
+    <script>
+      const showArtist = new URLSearchParams(location.search).get("artist") !== "0";
+      IU.connect({
+        status(s) {
+          const song = s.currentSong;
+          document.getElementById("title").textContent = song ? song.title : "";
+          document.getElementById("artist").textContent = song && showArtist ? song.artist : "";
+        },
+      });
+    </script>
+  </body>
+</html>

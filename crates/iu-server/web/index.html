@@ -64,6 +64,18 @@
       th { color: var(--muted); font-weight: 600; font-size: 0.75rem; border-top: none; }
       td:first-child, th:first-child { text-align: left; }
       .empty { color: var(--muted); padding: 6px 0; }
+      .result { margin-top: 6px; font-weight: 600; }
+      .song { font-weight: 700; margin: 2px 0 4px; }
+      .naming h2 { color: #ffb300; }
+      .unnamed { border-top: 1px solid #2c2f38; padding: 8px 0; font-size: 0.9rem; }
+      .choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+      .choices button { font: inherit; padding: 8px 12px; border-radius: 6px; border: 0; background: #2f5d8a; color: #fff; }
+      .unnamed input { font: inherit; width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; }
+      #results td:last-child { text-align: left; }
+      .lamp.failed { color: var(--pr); } .lamp.full-combo { color: var(--pg); }
+      .lamp.ex-hard-clear { color: #ffd54f; } .lamp.hard-clear { color: #ff8a80; }
+      .lamp.easy-clear { color: #aed581; } .lamp.clear { color: #81d4fa; }
+      .lamp.assist-clear { color: #ce93d8; }
     </style>
   </head>
   <body>
@@ -83,8 +95,17 @@
     <section class="card">
       <h2 id="t-current"></h2>
       <div class="big" id="cur-notes">–</div>
+      <div class="song" id="cur-song"></div>
       <div class="muted" id="cur-state"></div>
       <div class="judges" id="cur-judges"></div>
+      <div class="result" id="cur-result"></div>
+    </section>
+
+    <!-- Development builds only: the server answers 404 otherwise. -->
+    <section class="card naming" id="naming" hidden>
+      <h2 id="t-naming"></h2>
+      <p class="muted" id="t-naming-hint"></p>
+      <div id="unnamed"></div>
     </section>
 
     <section class="card">
@@ -93,6 +114,11 @@
         <thead><tr><th></th><th class="pg">PG</th><th class="gr">GR</th><th class="gd">GD</th><th class="bd">BD</th><th class="pr">PR</th><th></th></tr></thead>
         <tbody id="plays"></tbody>
       </table>
+    </section>
+
+    <section class="card">
+      <h2 id="t-results"></h2>
+      <table><tbody id="results"></tbody></table>
     </section>
 
     <section class="card">
@@ -120,6 +146,7 @@
       $("t-current").textContent = t.current;
       $("t-list").textContent = t.todayPlays;
       $("t-days").textContent = t.recentDays;
+      $("t-results").textContent = t.todayResults;
       $("offline").textContent = t.offline;
 
       function judgeGrid(el, j) {
@@ -139,12 +166,39 @@
         judgeGrid($("today-judges"), s.today);
         const j = IU.shownJudge(s);
         $("cur-notes").textContent = j ? IU.fmt(IU.notes(j)) : "–";
+        $("cur-song").textContent = s.currentSong ? `${s.currentSong.title} / ${s.currentSong.artist}` : "";
         $("cur-state").textContent = s.current
           ? `${t.playing} (${s.layout})`
           : s.lastPlay
             ? `${t.finished} (${s.lastPlay.layout})`
             : t.none;
         judgeGrid($("cur-judges"), j);
+        $("cur-result").innerHTML = !s.current && s.lastResult ? resultLine(s.lastResult) : "";
+      }
+
+      const LAMPS = {
+        "no-play": "NO PLAY",
+        failed: "FAILED",
+        "assist-clear": "ASSIST CLEAR",
+        "easy-clear": "EASY CLEAR",
+        clear: "CLEAR",
+        "hard-clear": "HARD CLEAR",
+        "ex-hard-clear": "EX HARD CLEAR",
+        "full-combo": "FULL COMBO",
+      };
+      const escape = (s) =>
+        s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+      function resultLine(r) {
+        return [
+          r.title && `<b>${escape(r.title)}</b>`,
+          r.lamp && `<span class="lamp ${r.lamp}">${LAMPS[r.lamp]}</span>`,
+          r.chart && `${r.chart}${r.level ?? ""}`,
+          `SCORE ${r.score}`,
+          r.djLevel,
+          r.missCount !== null && `MISS ${r.missCount}`,
+        ]
+          .filter(Boolean)
+          .join(" · ");
       }
 
       const time = (iso) =>
@@ -165,6 +219,13 @@
                 )
                 .join("")
             : `<tr><td class="empty" colspan="7">${t.none}</td></tr>`;
+          $("results").innerHTML = today.results.length
+            ? today.results
+                .slice()
+                .reverse()
+                .map((r) => `<tr><td>${time(r.recordedAt)}</td><td>${resultLine(r)}</td></tr>`)
+                .join("")
+            : `<tr><td class="empty" colspan="2">${t.none}</td></tr>`;
           const days = await IU.getJSON("/api/days?limit=14");
           $("days").innerHTML = days
             .map(
@@ -178,16 +239,88 @@
         }
       }
 
+      // ---- naming results whose song was not recognized -----------------
+      $("t-naming").textContent = t.naming;
+      $("t-naming-hint").textContent = t.namingHint;
+
+      const songButtons = (id, songs) =>
+        songs
+          .map(
+            (s) =>
+              `<button data-id="${id}" data-song="${escape(s.id)}" title="${escape(s.artist)}">` +
+              `${escape(s.title)}</button>`,
+          )
+          .join("");
+
+      async function loadUnnamed() {
+        let list;
+        try {
+          const res = await fetch("/api/unnamed");
+          if (!res.ok) {
+            $("naming").hidden = true;
+            return;
+          }
+          list = await res.json();
+        } catch (e) {
+          console.error(e);
+          return;
+        }
+        $("naming").hidden = list.length === 0;
+        $("unnamed").innerHTML = list
+          .map(({ result: r, candidates }) => {
+            const what = [time(r.recordedAt), r.chart && `${r.chart}${r.level ?? ""}`, `${r.notes} NOTES`, resultLine(r)]
+              .filter(Boolean)
+              .join(" · ");
+            const pick = candidates.length
+              ? `<div class="choices">${songButtons(r.id, candidates)}</div>`
+              : `<p class="muted">${t.noCandidates}</p>` +
+                `<input data-search="${r.id}" placeholder="${t.search}">` +
+                `<div class="choices" id="found-${r.id}"></div>`;
+            return `<div class="unnamed"><div>${what}</div>${pick}</div>`;
+          })
+          .join("");
+      }
+
+      $("unnamed").addEventListener("click", async (e) => {
+        const b = e.target.closest("button[data-song]");
+        if (!b) return;
+        b.disabled = true;
+        const res = await fetch(`/api/results/${b.dataset.id}/song`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ songId: b.dataset.song }),
+        });
+        if (!res.ok) alert(await res.text());
+        loadUnnamed();
+      });
+
+      $("unnamed").addEventListener("input", async (e) => {
+        const id = e.target.dataset.search;
+        if (!id) return;
+        const q = encodeURIComponent(e.target.value);
+        const songs = await IU.getJSON(`/api/songs?q=${q}`);
+        $(`found-${id}`).innerHTML = songButtons(id, songs);
+      });
+
       IU.connect({
         open() {
           document.body.classList.remove("disconnected");
           loadLists();
+          loadUnnamed();
         },
         close() {
           document.body.classList.add("disconnected");
         },
         status: showStatus,
         playFinished: loadLists,
+        resultRecorded: () => {
+          loadLists();
+          loadUnnamed();
+        },
+        resultUpdated: () => {
+          loadLists();
+          loadUnnamed();
+        },
       });
     </script>
   </body>
