@@ -6,7 +6,9 @@
 pub mod mask;
 pub mod play;
 pub mod result;
+pub mod title;
 
 pub use mask::Mask;
 pub use play::{JudgeReadError, LayoutAnchor, PlayResources};
 pub use result::{ResultReading, ResultResources};
+pub use title::{TitleMask, TitleResources};

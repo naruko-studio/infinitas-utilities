@@ -4,8 +4,10 @@
 use std::path::PathBuf;
 
 use iu_core::label::{Label, Screen};
+use iu_core::songs::SongList;
 use iu_core::{Judge, PlayLayout};
 use iu_recog::result::ResultSymbols;
+use iu_recog::title::{TitleMatch, TitleResources, identify};
 use iu_recog::{PlayResources, ResultReading, ResultResources};
 
 fn play_resources(width: u32, height: u32) -> Result<PlayResources, String> {
@@ -110,6 +112,49 @@ fn result_screens_read_correctly() {
     });
 }
 
+/// Every labelled result screenshot with a song: the chart, level and NOTES
+/// count plus the title mask name the right song.
+#[test]
+fn result_titles_are_recognized() {
+    let songs = SongList::from_json(include_str!("../../../resources/songs.json"))
+        .expect("bundled song list");
+    iu_fixtures::run("result", |fixture, img| {
+        let label = fixture.label.as_ref().ok_or("no label")?;
+        let Label::Result(want) =
+            Label::from_file_json(Screen::Result, &label.to_string()).map_err(|e| e.to_string())?
+        else {
+            return Err("not a result label".into());
+        };
+        let Some(want_id) = want.song_id else {
+            return Ok(());
+        };
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../resources")
+            .join(format!("{}x{}", fixture.width, fixture.height))
+            .join("titles.json");
+        let json = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let res = TitleResources::from_json(&json).map_err(|e| e.to_string())?;
+        let mask = res.mask(img).ok_or("wrong size")?;
+        let candidates: Vec<&str> = songs
+            .candidates(Some(want.chart), Some(want.level), want.notes)
+            .into_iter()
+            .map(|s| s.id.as_str())
+            .collect();
+        match identify(&mask, &res.titles, &candidates, res.max_distance) {
+            TitleMatch::OnlyCandidate(id) | TitleMatch::Recognized { song_id: id, .. }
+                if id == want_id =>
+            {
+                Ok(())
+            }
+            other => Err(format!(
+                "{}: got {other:?} among {} candidates",
+                want.title,
+                candidates.len()
+            )),
+        }
+    });
+}
+
 /// No other screen may be mistaken for a result screen.
 #[test]
 fn other_screens_are_not_result() {
@@ -122,4 +167,29 @@ fn other_screens_are_not_result() {
             }
         });
     }
+}
+
+/// Every labelled play screenshot: the info box's title line lies wholly
+/// inside its area (ink, but none on the area's edge rows).
+#[test]
+fn play_title_lines_fit_their_area() {
+    use iu_recog::title::{TitleMask, play_title_area};
+    iu_fixtures::run("play", |fixture, img| {
+        let label = fixture.label.as_ref().ok_or("no label")?;
+        let layout: PlayLayout =
+            serde_json::from_value(label["layout"].clone()).map_err(|e| e.to_string())?;
+        let area = play_title_area(fixture.width, fixture.height, layout)
+            .ok_or("no play title area for this resolution")?;
+        let mask = TitleMask::from_image(img, area);
+        if mask.count_ones() < 40 {
+            return Err(format!("only {} ink pixels", mask.count_ones()));
+        }
+        let edge = [0, 1, area.height - 2, area.height - 1];
+        for y in edge {
+            if (0..area.width).any(|x| mask.get(x, y)) {
+                return Err(format!("ink on edge row {y} of {}", area.height));
+            }
+        }
+        Ok(())
+    });
 }
