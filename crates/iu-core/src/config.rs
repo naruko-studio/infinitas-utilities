@@ -71,7 +71,9 @@ impl Default for CaptureConfig {
     fn default() -> Self {
         Self {
             spout_sender: "Spout_OBS_Filter".to_owned(),
-            fps: 30,
+            // OBS sends 60 by default: reading every frame catches a
+            // result screen skipped right after a quick fail.
+            fps: 60,
             dev_capture: false,
             game_screenshot_dir: PathBuf::from(r"C:\Games\beatmania IIDX INFINITAS\screenshots"),
         }
@@ -187,7 +189,7 @@ mod tests {
         let config = Config {
             language: Language::Ja,
             capture: CaptureConfig {
-                fps: 60,
+                fps: 30,
                 ..Default::default()
             },
             ..Default::default()

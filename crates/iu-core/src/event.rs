@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
 use crate::play::PlayRecord;
+use crate::result::ResultRecord;
 use crate::status::Status;
 
 /// Room for bursts; a listener that falls further behind sees `Lagged` and
@@ -19,9 +20,13 @@ pub const BUS_CAPACITY: usize = 1024;
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Event {
     /// Snapshot of everything shown live (at most 10 Hz).
-    Status(Status),
+    Status(Box<Status>),
     /// A play ended with at least one judgement; written to `data.db`.
     PlayFinished(PlayRecord),
+    /// A result screen was read and written to `data.db`.
+    ResultRecorded(ResultRecord),
+    /// A stored result changed (its song was named later).
+    ResultUpdated(ResultRecord),
 }
 
 pub type Bus = broadcast::Sender<Event>;
@@ -36,7 +41,7 @@ mod tests {
 
     #[test]
     fn events_serialize_with_a_type_tag() {
-        let json = serde_json::to_value(Event::Status(Status::default())).unwrap();
+        let json = serde_json::to_value(Event::Status(Box::default())).unwrap();
         assert_eq!(json["type"], "status");
         assert_eq!(json["connection"], "starting");
         assert_eq!(json["todayNotes"], 0);

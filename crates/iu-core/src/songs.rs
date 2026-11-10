@@ -133,6 +133,25 @@ impl SongList {
         Ok(list)
     }
 
+    pub fn get(&self, id: &str) -> Option<&Song> {
+        self.songs.iter().find(|s| s.id == id)
+    }
+
+    /// Songs with a chart of this NOTES count, and of this chart and level
+    /// when known: the songs a result screen can be from.
+    pub fn candidates(&self, chart: Option<Chart>, level: Option<u8>, notes: u32) -> Vec<&Song> {
+        self.songs
+            .iter()
+            .filter(|s| {
+                s.charts.iter().any(|(&c, info)| {
+                    info.notes == Some(notes)
+                        && chart.is_none_or(|want| want == c)
+                        && level.is_none_or(|want| want == info.level)
+                })
+            })
+            .collect()
+    }
+
     pub fn validate(&self) -> Result<(), SongListError> {
         let mut ids = HashSet::new();
         for song in &self.songs {
@@ -175,9 +194,237 @@ pub fn song_id(title: &str, artist: &str) -> String {
     format!("{h:016x}")
 }
 
+// ---- matching OCR text -----------------------------------------------------
+
+/// A song found from text read off the screen.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TextMatch<'a> {
+    pub song: &'a Song,
+    /// Title similarity plus half the artist similarity (0–1.5).
+    pub score: f32,
+}
+
+/// Below this the best song is not trusted.
+const TEXT_MIN_SCORE: f32 = 0.8;
+/// The best song must beat the runner-up by this much.
+const TEXT_MIN_MARGIN: f32 = 0.15;
+/// Both the title and the artist must look somewhat alike (the screen shows
+/// both): a lone UI word that happens to be a title is not enough.
+const TEXT_MIN_PART: f32 = 0.35;
+/// A title or artist read this closely is trusted even when the other part
+/// was misread.
+const TEXT_EXACT: f32 = 0.95;
+/// What an exact artist needs from the title.
+const TEXT_SOME_TITLE: f32 = 0.25;
+/// The game's own words around the title (normalized): never a title.
+const UI_WORDS: [&str; 14] = [
+    "extrastage",
+    "pacemaker",
+    "you",
+    "graphinformation",
+    "beginner",
+    "normal",
+    "hyper",
+    "another",
+    "leggendaria",
+    "player01",
+    "player02",
+    "target",
+    "mybest",
+    "judge",
+];
+
+/// The song whose title and artist best match the OCR'd `lines`, among
+/// `songs`, if it is clearly the best. Each line is compared on its own
+/// (OCR returns the title and the artist as separate lines), so other text
+/// read from the same area does not get in the way.
+pub fn match_text<'a>(
+    lines: &[String],
+    songs: impl IntoIterator<Item = &'a Song>,
+) -> Option<TextMatch<'a>> {
+    // (bigrams, characters as read without spaces): the raw length guards
+    // very short titles, where dropping an unreadable character would turn
+    // one title into another ("V2" read as "V?" is not "V").
+    let lines: Vec<(Vec<(char, char)>, usize)> = lines
+        .iter()
+        .map(|l| (normalize(l), compact_len(l)))
+        .filter(|(n, _)| !UI_WORDS.contains(&n.as_str()))
+        .map(|(n, len)| (bigrams(&n), len))
+        .collect();
+    let best_line = |text: &str| {
+        let normalized = normalize(text);
+        let b = bigrams(&normalized);
+        let short = normalized.chars().count() <= SHORT_TITLE;
+        lines
+            .iter()
+            .filter(|(_, len)| !short || *len == compact_len(text))
+            .map(|(l, _)| dice(l, &b))
+            .fold(0.0f32, f32::max)
+    };
+    let mut scored: Vec<TextMatch<'a>> = songs
+        .into_iter()
+        .filter_map(|song| {
+            let title = best_line(&song.title);
+            // Some songs have no artist in the list: judge the title alone.
+            let artist = if normalize(&song.artist).is_empty() {
+                1.0
+            } else {
+                best_line(&song.artist)
+            };
+            // A title read exactly is enough: OCR misreads some artists'
+            // kanji (青龍 → 青能). Likewise an exact artist with a garbled
+            // kanji title (ピアノ協奏曲第１番"蠍火" → 一当み協奏第一番"蠍火当").
+            let trusted = (title >= TEXT_MIN_PART && artist >= TEXT_MIN_PART)
+                || title >= TEXT_EXACT
+                || (artist >= TEXT_EXACT && title >= TEXT_SOME_TITLE);
+            trusted.then_some(TextMatch {
+                song,
+                score: title + artist / 2.0,
+            })
+        })
+        .collect();
+    scored.sort_by(|a, b| b.score.total_cmp(&a.score));
+    let best = *scored.first()?;
+    let runner_up = scored.get(1).map_or(0.0, |m| m.score);
+    (best.score >= TEXT_MIN_SCORE && best.score - runner_up >= TEXT_MIN_MARGIN).then_some(best)
+}
+
+/// Lower case, full-width ASCII to half-width, letters and digits only
+/// (OCR spaces out Japanese and garbles punctuation).
+fn normalize(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\u{FF01}'..='\u{FF5E}' => char::from_u32(c as u32 - 0xFEE0).unwrap_or(c),
+            _ => c,
+        })
+        .flat_map(char::to_lowercase)
+        .filter(|c| c.is_alphanumeric())
+        .collect()
+}
+
+/// Titles this short (normalized) must match a line of the same length.
+const SHORT_TITLE: usize = 3;
+
+/// Characters other than spaces.
+fn compact_len(s: &str) -> usize {
+    s.chars().filter(|c| !c.is_whitespace()).count()
+}
+
+/// Adjacent character pairs; a single character is its own "pair".
+fn bigrams(s: &str) -> Vec<(char, char)> {
+    let chars: Vec<char> = s.chars().collect();
+    match chars.as_slice() {
+        [] => Vec::new(),
+        [c] => vec![(*c, '\0')],
+        _ => chars.windows(2).map(|w| (w[0], w[1])).collect(),
+    }
+}
+
+/// Sørensen–Dice similarity of two bigram lists (0–1).
+fn dice(a: &[(char, char)], b: &[(char, char)]) -> f32 {
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    let mut rest = b.to_vec();
+    let mut common = 0;
+    for x in a {
+        if let Some(i) = rest.iter().position(|y| y == x) {
+            rest.swap_remove(i);
+            common += 1;
+        }
+    }
+    2.0 * common as f32 / (a.len() + b.len()) as f32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Lines Windows OCR (Japanese + English) really returned for the play
+    /// screen's top band and the result screen's title area.
+    #[test]
+    fn ocr_text_finds_the_song() {
+        let list = SongList::from_json(include_str!("../../../resources/songs.json")).unwrap();
+        let find = |lines: &[&str]| {
+            let lines: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
+            match_text(&lines, &list.songs).map(|m| m.song.title.as_str())
+        };
+        assert_eq!(
+            find(&[
+                "E.XTRA STAGE",
+                "Shooting St",
+                "R ・ GLOSS",
+                "EXTRA STAGE",
+                "Shooting Star",
+                "ReGLOSS"
+            ]),
+            Some("Shooting Star")
+        );
+        assert_eq!(
+            find(&[
+                "YOLJ",
+                "_PACEMAKER",
+                "NORMAL",
+                "E>GRA STAGE",
+                "Mermaid gir'",
+                "Cr ・ am 0 可 f",
+                "Mermaid girl",
+                "Cream puff"
+            ]),
+            Some("Mermaid girl")
+        );
+        assert_eq!(
+            find(&[
+                "NORh A し",
+                "E>GRA STAGE",
+                "Second Heaven",
+                "Ryu±",
+                "YOLJ",
+                "GRAPH INFORMATION",
+                "Ryu*"
+            ]),
+            Some("Second Heaven")
+        );
+        assert_eq!(
+            find(&[
+                "YOLJ",
+                "PACEMAKER",
+                "E><TRA STAGE",
+                "ヨ リ ヨ 5",
+                "青 能",
+                "YOU",
+                "EXTRA STAGE",
+                "3y3S"
+            ]),
+            Some("3y3s")
+        );
+        // Result screen, garbled title but a clean artist.
+        assert_eq!(
+            find(&["60 し D RUSH", "DJ YOSHITAKA-G feat.Michael a は mode"]),
+            Some("GOLD RUSH")
+        );
+        assert_eq!(find(&["RFD ZONF", "Tatsh&NAOKI"]), Some("RED ZONE"));
+        let kanji = ["一 当 み 協 . 奏 第 一 番 \" 蠍 火 当", "virkato"];
+        assert_eq!(find(&kanji), Some("ピアノ協奏曲第１番”蠍火”"));
+        // A short title with a character OCR could not read is not
+        // another title: the V2 info box read as "V?", TAKA.
+        assert_eq!(find(&["E>GRA STAGE", "V?", "TAKA", "PACEMAKER"]), None);
+        assert_eq!(find(&["V2", "TAKA"]), Some("V2"));
+        assert_eq!(find(&["V", "TAKA"]), Some("V"));
+        // UI words alone name no song.
+        assert_eq!(find(&["EXTRA STAGE", "PACEMAKER", "YOU", "NORMAL"]), None);
+        assert_eq!(find(&[]), None);
+    }
+
+    #[test]
+    fn normalizing_and_similarity() {
+        assert_eq!(normalize("Ｓｈｏｏｔｉｎｇ Star!"), "shootingstar");
+        assert_eq!(normalize("ピ ア ノ 協 奏 曲"), "ピアノ協奏曲");
+        let b = |s: &str| bigrams(&normalize(s));
+        assert_eq!(dice(&b("V2"), &b("v2")), 1.0);
+        assert_eq!(dice(&b("abc"), &b("xyz")), 0.0);
+        assert_eq!(dice(&b(""), &b("a")), 0.0);
+    }
 
     fn song(title: &str, charts: &[(Chart, u8)]) -> Song {
         Song {
@@ -245,6 +492,14 @@ mod tests {
                 notes: Some(420)
             }
         );
+        // Shooting Star [SPB1] is the only 119-note SPB 1; its SPN 4 shares
+        // 420 notes with five other songs.
+        let only = list.candidates(Some(Chart::Spb), Some(1), 119);
+        assert_eq!(only, [star]);
+        assert_eq!(list.get(&star.id), Some(star));
+        assert_eq!(list.candidates(Some(Chart::Spn), Some(4), 420).len(), 6);
+        // Unknown chart and level: every chart with that count.
+        assert!(list.candidates(None, None, 420).len() >= 6);
     }
 
     #[test]
