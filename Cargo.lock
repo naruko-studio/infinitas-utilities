@@ -1668,6 +1668,7 @@ dependencies = [
  "iu-capture",
  "iu-core",
  "iu-db",
+ "iu-ocr",
  "iu-recog",
  "iu-server",
  "serde",
@@ -1722,6 +1723,8 @@ dependencies = [
  "chrono",
  "iu-core",
  "rusqlite",
+ "serde",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
@@ -1738,9 +1741,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "iu-ocr"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "iu-core",
+ "iu-fixtures",
+ "thiserror 2.0.21",
+ "windows",
+]
+
+[[package]]
 name = "iu-recog"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "image",
  "iu-core",
  "iu-fixtures",
