@@ -43,6 +43,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         s.judge.notes_hit(),
         s.judge
     );
+    for r in store.results_on(day)? {
+        let word = |v: Option<String>| v.unwrap_or_else(|| "?".into());
+        let json = |v: serde_json::Value| v.as_str().map(str::to_owned);
+        println!(
+            "result {}  {}  {:?} {}{}  {}  SCORE {}  DJ {}  MISS {}  {}",
+            r.recorded_at.with_timezone(&Local).format("%H:%M:%S"),
+            r.title.as_deref().unwrap_or("(title?)"),
+            r.side,
+            word(r.chart.map(|c| c.key().to_owned())),
+            r.level.map_or("?".into(), |l| l.to_string()),
+            word(r.lamp.and_then(|l| json(serde_json::to_value(l).ok()?))),
+            r.score,
+            word(r.dj_level.and_then(|d| json(serde_json::to_value(d).ok()?))),
+            r.miss_count.map_or("—".into(), |m| m.to_string()),
+            if r.dead { "DEAD" } else { "" },
+        );
+    }
     Ok(())
 }
 
